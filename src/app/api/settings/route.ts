@@ -30,9 +30,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!requireRole(user.role, [ROLES.ADMIN])) {
+    if (!requireRole(user.role, [ROLES.ADMIN, ROLES.FPA_DIRECTOR])) {
       return NextResponse.json(
-        { error: 'Only administrators can update settings' },
+        { error: 'Only ADMIN or FPA_DIRECTOR can update settings' },
         { status: 403 }
       )
     }

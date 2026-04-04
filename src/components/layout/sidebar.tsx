@@ -12,10 +12,12 @@ import {
   FileSpreadsheet,
   GitCompare,
   Settings,
+  Settings2,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Bell,
+  BookOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
@@ -30,6 +32,7 @@ const navItems = [
   { href: "/stock-valuation", icon: Warehouse, labelKey: "stockValuation" },
   { href: "/cost-sheets", icon: FileSpreadsheet, labelKey: "costSheets" },
   { href: "/scenarios", icon: GitCompare, labelKey: "scenarios" },
+  { href: "/setup", icon: Settings2, labelKey: "setup" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
 ]
 
