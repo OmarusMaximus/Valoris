@@ -1,6 +1,7 @@
 import { PrismaClient } from '../src/generated/prisma';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
 
 import path from 'path';
 const dbPath = path.resolve(process.cwd(), 'dev.db');
@@ -144,6 +145,107 @@ async function main() {
       });
     }
     console.log(`  ✓ ${bomItems.length} BOM items created`);
+
+    // ============================================================
+    // 5b. ARTICLES (Sales packaging of products)
+    // ============================================================
+    console.log('Creating articles...');
+
+    // Ensure uploads directory exists
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'articles');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+
+    const articleDefs = [
+      { code: 'ART-AMEO-P01-25', name: 'Compost Premium Poudre 25kg', productCode: 'PF-AMEO-P01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 25, contentUnit: 'KG', catalogPrice: 18.50, standardCost: 12.30 },
+      { code: 'ART-AMEO-P01-500', name: 'Compost Premium Poudre Big Bag 500kg', productCode: 'PF-AMEO-P01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 500, contentUnit: 'KG', catalogPrice: 320, standardCost: 215 },
+      { code: 'ART-AMEO-G01-25', name: 'Compost Granulé 25kg', productCode: 'PF-AMEO-G01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 25, contentUnit: 'KG', catalogPrice: 22.00, standardCost: 14.80 },
+      { code: 'ART-AMEO-G01-500', name: 'Compost Granulé Big Bag 500kg', productCode: 'PF-AMEO-G01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 500, contentUnit: 'KG', catalogPrice: 380, standardCost: 258 },
+      { code: 'ART-BIO-S01-1', name: 'Biostimulant Racinaire 1L', productCode: 'PF-BIO-S01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 1, contentUnit: 'L', catalogPrice: 35.00, standardCost: 18.50 },
+      { code: 'ART-BIO-S01-5', name: 'Biostimulant Racinaire 5L', productCode: 'PF-BIO-S01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 5, contentUnit: 'L', catalogPrice: 155.00, standardCost: 82.00 },
+      { code: 'ART-BIO-S01-20', name: 'Biostimulant Racinaire 20L', productCode: 'PF-BIO-S01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 20, contentUnit: 'L', catalogPrice: 560.00, standardCost: 295.00 },
+      { code: 'ART-BIO-C01-1', name: 'Biocontrôle Foliaire 1kg', productCode: 'PF-BIO-C01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 1, contentUnit: 'KG', catalogPrice: 42.00, standardCost: 22.00 },
+      { code: 'ART-CC-01-1', name: 'Correcteur Fer-Zinc 1L', productCode: 'PF-CC-01', stockUnit: 'UNIT', salesUnit: 'UNIT', contentQty: 1, contentUnit: 'L', catalogPrice: 28.00, standardCost: 15.00 },
+    ];
+
+    const articleMap: Record<string, string> = {};
+    for (const a of articleDefs) {
+      const { productCode, ...rest } = a;
+      const article = await tx.article.upsert({
+        where: { code: a.code },
+        update: { name: rest.name, productId: productMap[productCode], stockUnit: rest.stockUnit, salesUnit: rest.salesUnit, contentQty: rest.contentQty, contentUnit: rest.contentUnit, catalogPrice: rest.catalogPrice, standardCost: rest.standardCost },
+        create: { ...rest, productId: productMap[productCode] },
+      });
+      articleMap[a.code] = article.id;
+    }
+    console.log(`  ✓ ${articleDefs.length} articles created`);
+
+    // ============================================================
+    // 5c. ARTICLE SALES HISTORY (sample data for first 3 articles)
+    // ============================================================
+    console.log('Creating article sales history...');
+
+    const salesHistoryData: Array<{
+      articleCode: string;
+      period: string;
+      revenue: number;
+      qtySold: number;
+      avgPrice: number;
+      variableCost: number;
+    }> = [];
+
+    // ART-AMEO-P01-25: Compost Poudre 25kg - steady growth, seasonal dip in Dec
+    const art1Periods = [
+      { period: '2025-10', revenue: 14800, qtySold: 820, avgPrice: 18.05, variableCost: 9950 },
+      { period: '2025-11', revenue: 15500, qtySold: 855, avgPrice: 18.13, variableCost: 10350 },
+      { period: '2025-12', revenue: 12200, qtySold: 680, avgPrice: 17.94, variableCost: 8400 },
+      { period: '2026-01', revenue: 16100, qtySold: 890, avgPrice: 18.09, variableCost: 10900 },
+      { period: '2026-02', revenue: 17400, qtySold: 950, avgPrice: 18.32, variableCost: 11700 },
+      { period: '2026-03', revenue: 18900, qtySold: 1020, avgPrice: 18.53, variableCost: 12650 },
+    ];
+    for (const p of art1Periods) {
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-25', ...p });
+    }
+
+    // ART-AMEO-P01-500: Compost Poudre Big Bag - larger volumes, B2B pattern
+    const art2Periods = [
+      { period: '2025-10', revenue: 44800, qtySold: 142, avgPrice: 315.49, variableCost: 30200 },
+      { period: '2025-11', revenue: 48000, qtySold: 152, avgPrice: 315.79, variableCost: 32500 },
+      { period: '2025-12', revenue: 38400, qtySold: 122, avgPrice: 314.75, variableCost: 26100 },
+      { period: '2026-01', revenue: 51200, qtySold: 162, avgPrice: 316.05, variableCost: 34800 },
+      { period: '2026-02', revenue: 54400, qtySold: 172, avgPrice: 316.28, variableCost: 37100 },
+      { period: '2026-03', revenue: 57600, qtySold: 182, avgPrice: 316.48, variableCost: 39500 },
+    ];
+    for (const p of art2Periods) {
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-500', ...p });
+    }
+
+    // ART-AMEO-G01-25: Compost Granulé 25kg - strong spring demand
+    const art3Periods = [
+      { period: '2025-10', revenue: 17600, qtySold: 810, avgPrice: 21.73, variableCost: 11800 },
+      { period: '2025-11', revenue: 18700, qtySold: 860, avgPrice: 21.74, variableCost: 12600 },
+      { period: '2025-12', revenue: 14300, qtySold: 660, avgPrice: 21.67, variableCost: 9800 },
+      { period: '2026-01', revenue: 19800, qtySold: 910, avgPrice: 21.76, variableCost: 13400 },
+      { period: '2026-02', revenue: 22000, qtySold: 1005, avgPrice: 21.89, variableCost: 14900 },
+      { period: '2026-03', revenue: 24200, qtySold: 1100, avgPrice: 22.00, variableCost: 16400 },
+    ];
+    for (const p of art3Periods) {
+      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', ...p });
+    }
+
+    for (const sh of salesHistoryData) {
+      const { articleCode, ...data } = sh;
+      await tx.articleSalesHistory.upsert({
+        where: {
+          articleId_period: {
+            articleId: articleMap[articleCode],
+            period: data.period,
+          },
+        },
+        update: { revenue: data.revenue, qtySold: data.qtySold, avgPrice: data.avgPrice, variableCost: data.variableCost },
+        create: { articleId: articleMap[articleCode], ...data },
+      });
+    }
+    console.log(`  ✓ ${salesHistoryData.length} sales history entries created`);
 
     // ============================================================
     // 6. COST CATEGORIES
