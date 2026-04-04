@@ -18,6 +18,7 @@ import {
   LogOut,
   Bell,
   BookOpen,
+  Tag,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button"
 const navItems = [
   { href: "/", icon: LayoutDashboard, labelKey: "dashboard" },
   { href: "/products", icon: Package, labelKey: "products" },
+  { href: "/articles", icon: Tag, labelKey: "articles" },
   { href: "/production", icon: Factory, labelKey: "production" },
   { href: "/import", icon: Upload, labelKey: "import" },
   { href: "/reallocations", icon: ArrowLeftRight, labelKey: "reallocations" },
@@ -40,6 +42,7 @@ const navItems = [
 const labels: Record<string, string> = {
   dashboard: "Tableau de bord",
   products: "Produits",
+  articles: "Articles",
   production: "Production",
   import: "Import comptable",
   reallocations: "Réaffectations",

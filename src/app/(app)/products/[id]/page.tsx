@@ -30,9 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatNumber, formatPercent } from "@/lib/utils"
-import { ArrowLeft, Plus, Trash2, Loader2, Package } from "lucide-react"
+import { cn, formatNumber, formatPercent, formatCurrency } from "@/lib/utils"
+import { ArrowLeft, Plus, Trash2, Loader2, Package, Tag, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 type Product = {
   id: string
@@ -74,6 +75,22 @@ const FAMILY_LABELS: Record<string, string> = {
   autre: "Autre",
 }
 
+type ArticleItem = {
+  id: string
+  code: string
+  name: string
+  photoUrl: string | null
+  contentQty: number
+  contentUnit: string
+  catalogPrice: number
+  standardCost: number
+  product: {
+    id: string
+    name: string
+    family: string
+  }
+}
+
 const emptyBomForm: BomFormData = {
   componentId: "",
   quantity: "",
@@ -83,11 +100,14 @@ const emptyBomForm: BomFormData = {
 
 export default function ProductDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const productId = params.id as string
 
   const [product, setProduct] = useState<Product | null>(null)
   const [bomItems, setBomItems] = useState<BomItem[]>([])
   const [availableComponents, setAvailableComponents] = useState<Product[]>([])
+  const [articles, setArticles] = useState<ArticleItem[]>([])
+  const [articlesLoading, setArticlesLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<BomFormData>(emptyBomForm)
@@ -109,6 +129,21 @@ export default function ProductDetailPage() {
     }
   }, [productId])
 
+  const fetchArticles = useCallback(async () => {
+    setArticlesLoading(true)
+    try {
+      const res = await fetch(`/api/articles?productId=${productId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setArticles(data)
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setArticlesLoading(false)
+    }
+  }, [productId])
+
   const fetchComponents = useCallback(async () => {
     try {
       const res = await fetch(`/api/products?entityId=all&type=component`)
@@ -124,7 +159,8 @@ export default function ProductDetailPage() {
   useEffect(() => {
     fetchProduct()
     fetchComponents()
-  }, [fetchProduct, fetchComponents])
+    fetchArticles()
+  }, [fetchProduct, fetchComponents, fetchArticles])
 
   const openAddDialog = () => {
     setForm(emptyBomForm)
@@ -302,6 +338,98 @@ export default function ProductDetailPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Articles Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                Articles ({articles.length})
+              </CardTitle>
+              <CardDescription>
+                Conditionnements commerciaux de ce produit
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                router.push(`/articles?productId=${productId}`)
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Ajouter un article
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {articlesLoading ? (
+            <div className="flex h-[120px] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+          ) : articles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <Tag className="mb-2 h-8 w-8" />
+              <p className="text-sm">Aucun article pour ce produit</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {articles.map((article) => {
+                const margin = article.catalogPrice
+                  ? ((article.catalogPrice - article.standardCost) /
+                      article.catalogPrice) *
+                    100
+                  : null
+                return (
+                  <div
+                    key={article.id}
+                    className="cursor-pointer rounded-lg border border-slate-200 p-3 transition-shadow hover:shadow-md"
+                    onClick={() => router.push(`/articles/${article.id}`)}
+                  >
+                    <div className="mb-2 flex h-24 items-center justify-center rounded-md bg-slate-50">
+                      {article.photoUrl ? (
+                        <img
+                          src={article.photoUrl}
+                          alt={article.name}
+                          className="h-full w-full rounded-md object-cover"
+                        />
+                      ) : (
+                        <Package className="h-10 w-10 text-slate-200" />
+                      )}
+                    </div>
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {article.name}
+                    </p>
+                    <p className="font-mono text-xs text-slate-500">
+                      {article.code}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {article.contentQty} {article.contentUnit}
+                    </p>
+                    <div className="mt-2 flex items-end justify-between">
+                      <p className="text-sm font-bold text-slate-900">
+                        {formatCurrency(article.catalogPrice)}
+                      </p>
+                      {margin !== null && (
+                        <span
+                          className={cn(
+                            "text-xs font-semibold",
+                            margin >= 0 ? "text-emerald-600" : "text-red-600"
+                          )}
+                        >
+                          {margin >= 0 ? "+" : ""}
+                          {margin.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
