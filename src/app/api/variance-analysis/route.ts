@@ -186,14 +186,14 @@ async function buildStandardReference(
 
     // Distribute standard cost proportionally across categories
     if (actual.totalCost > 0) {
-      for (const [catKey, catData] of actual.costByCategory) {
+      actual.costByCategory.forEach((catData, catKey) => {
         const proportion = catData.amount / actual.totalCost
         refData.costByCategory.set(catKey, {
           type: catData.type,
           name: catData.name,
           amount: refUnitCost * refQty * proportion,
         })
-      }
+      })
     }
 
     refMap.set(product.id, refData)
@@ -207,9 +207,9 @@ function computeVariances(
   refData: Map<string, ProductData>,
 ): ProductVariance[] {
   const results: ProductVariance[] = []
-  const allProductIds = new Set([...actualData.keys(), ...refData.keys()])
+  const allProductIds = new Set(Array.from(actualData.keys()).concat(Array.from(refData.keys())))
 
-  for (const pid of allProductIds) {
+  Array.from(allProductIds).forEach((pid) => {
     const actual = actualData.get(pid)
     const ref = refData.get(pid)
 
@@ -234,12 +234,11 @@ function computeVariances(
     const costEffect = -(aUnitCost - rUnitCost) * aQty
 
     // Cost drill-down by category
-    const allCatKeys = new Set([
-      ...(actual?.costByCategory.keys() || []),
-      ...(ref?.costByCategory.keys() || []),
-    ])
+    const actualCatKeys = actual ? Array.from(actual.costByCategory.keys()) : []
+    const refCatKeys = ref ? Array.from(ref.costByCategory.keys()) : []
+    const allCatKeys = new Set(actualCatKeys.concat(refCatKeys))
     const costDrillDown: CostDrillDown[] = []
-    for (const catKey of allCatKeys) {
+    Array.from(allCatKeys).forEach((catKey) => {
       const actualAmt = actual?.costByCategory.get(catKey)?.amount || 0
       const refAmt = ref?.costByCategory.get(catKey)?.amount || 0
       costDrillDown.push({
@@ -252,7 +251,7 @@ function computeVariances(
         refAmount: Math.round(refAmt * 100) / 100,
         variance: Math.round((actualAmt - refAmt) * 100) / 100,
       })
-    }
+    })
 
     results.push({
       productId: pid,
@@ -276,7 +275,7 @@ function computeVariances(
       costEffect: Math.round(costEffect * 100) / 100,
       costDrillDown,
     })
-  }
+  })
 
   results.sort((a, b) => Math.abs(b.totalVariance) - Math.abs(a.totalVariance))
   return results
@@ -419,9 +418,9 @@ export async function GET(request: NextRequest) {
     )
 
     // Round summary values
-    for (const key of Object.keys(summary) as (keyof typeof summary)[]) {
+    ;(Object.keys(summary) as (keyof typeof summary)[]).forEach((key) => {
       summary[key] = Math.round(summary[key] * 100) / 100
-    }
+    })
 
     return NextResponse.json({
       period,
