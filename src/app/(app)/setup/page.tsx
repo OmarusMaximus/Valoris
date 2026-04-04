@@ -39,7 +39,7 @@ import {
 // ─── Types ───
 type Entity = { id: string; code: string; name: string; country: string; currency: string }
 type Category = { id: string; code: string; name: string; type: string }
-type Product = { id: string; code: string; name: string; category: Category; family: string | null; unit: string }
+type Product = { id: string; code: string; name: string; category: Category; family: string | null; formulation: string | null; origin: string | null; unit: string }
 type CostCat = { id: string; code: string; name: string; type: string; isVariable: boolean; includeInContributionMargin: boolean; sortOrder: number }
 type Mapping = { id: string; accountCode: string; accountName: string | null; costCategoryId: string; costCategory?: CostCat; source: string }
 
@@ -55,11 +55,23 @@ const STEPS = [
 
 const CURRENCIES = ["EUR", "CHF", "MAD", "XOF", "KES", "USD"]
 const FAMILIES = [
-  { value: "engrais_poudre", label: "Engrais poudre" },
-  { value: "engrais_granules", label: "Engrais granulés" },
-  { value: "biostimulant", label: "Biostimulant" },
-  { value: "biocontrole", label: "Biocontrôle" },
-  { value: "distribution", label: "Distribution tiers" },
+  { value: "AMEO", label: "AMEO" },
+  { value: "BIOSTIMULANT", label: "Biostimulants" },
+  { value: "BIOCONTROLE", label: "Biocontrôle" },
+  { value: "CORRECTEUR_CARENCES", label: "Correcteurs carences" },
+  { value: "DIVERS", label: "Divers" },
+]
+const FORMULATIONS = [
+  { value: "POUDRE", label: "Poudre" },
+  { value: "GRANULE", label: "Granulé" },
+  { value: "WP", label: "WP" },
+  { value: "LIQUIDE", label: "Liquide" },
+  { value: "KIT", label: "Kit" },
+]
+const ORIGINS = [
+  { value: "GROUPE_LOCAL", label: "Groupe (local)" },
+  { value: "GROUPE_IMPORTE", label: "Groupe (importé)" },
+  { value: "TIERS", label: "Tiers" },
 ]
 const COST_TYPES = [
   { value: "MP", label: "Matières premières" },
@@ -86,7 +98,7 @@ export default function SetupPage() {
   // ─── Products ───
   const [products, setProducts] = useState<Product[]>([])
   const [prodEntity, setProdEntity] = useState("")
-  const [prodForm, setProdForm] = useState({ code: "", name: "", categoryId: "", family: "", unit: "KG" })
+  const [prodForm, setProdForm] = useState({ code: "", name: "", categoryId: "", family: "", formulation: "", origin: "", unit: "KG" })
 
   // ─── Cost Categories ───
   const [costCats, setCostCats] = useState<CostCat[]>([])
@@ -206,7 +218,7 @@ export default function SetupPage() {
         body: JSON.stringify({ ...prodForm, entityId: prodEntity }),
       })
       if (r.ok) {
-        setProdForm({ code: "", name: "", categoryId: "", family: "", unit: "KG" })
+        setProdForm({ code: "", name: "", categoryId: "", family: "", formulation: "", origin: "", unit: "KG" })
         fetchProducts()
       }
     } catch { /* */ }
@@ -394,7 +406,7 @@ export default function SetupPage() {
           </div>
           {prodEntity && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <Label>Code</Label>
                   <Input placeholder="PF-XXX-01" value={prodForm.code} onChange={e => setProdForm({ ...prodForm, code: e.target.value })} />
@@ -413,6 +425,19 @@ export default function SetupPage() {
                   </Select>
                 </div>
                 <div>
+                  <Label>Unité</Label>
+                  <Select value={prodForm.unit} onValueChange={v => setProdForm({ ...prodForm, unit: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="KG">KG</SelectItem>
+                      <SelectItem value="L">L</SelectItem>
+                      <SelectItem value="UNIT">Unité</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                <div>
                   <Label>Famille</Label>
                   <Select value={prodForm.family} onValueChange={v => setProdForm({ ...prodForm, family: v })}>
                     <SelectTrigger><SelectValue placeholder="Famille" /></SelectTrigger>
@@ -422,13 +447,20 @@ export default function SetupPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Unité</Label>
-                  <Select value={prodForm.unit} onValueChange={v => setProdForm({ ...prodForm, unit: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>Formulation</Label>
+                  <Select value={prodForm.formulation} onValueChange={v => setProdForm({ ...prodForm, formulation: v })}>
+                    <SelectTrigger><SelectValue placeholder="Formulation" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="KG">KG</SelectItem>
-                      <SelectItem value="L">L</SelectItem>
-                      <SelectItem value="UNIT">Unité</SelectItem>
+                      {FORMULATIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Origine</Label>
+                  <Select value={prodForm.origin} onValueChange={v => setProdForm({ ...prodForm, origin: v })}>
+                    <SelectTrigger><SelectValue placeholder="Origine" /></SelectTrigger>
+                    <SelectContent>
+                      {ORIGINS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

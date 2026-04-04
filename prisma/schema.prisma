@@ -80,7 +80,9 @@ model Product {
   entityId     String
   entity       Entity          @relation(fields: [entityId], references: [id])
   unit         String          @default("KG")
-  family       String?         // engrais_poudre, engrais_granules, biostimulant, biocontrole, distribution
+  family       String?         // AMEO, BIOSTIMULANT, BIOCONTROLE, CORRECTEUR_CARENCES, DIVERS
+  formulation  String?         // POUDRE, GRANULE, WP, LIQUIDE, KIT
+  origin       String?         // GROUPE_LOCAL, GROUPE_IMPORTE, TIERS
   active       Boolean         @default(true)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt

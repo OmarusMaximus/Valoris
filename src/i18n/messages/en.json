@@ -61,11 +61,23 @@
     "addBomItem": "Add Component",
     "yieldRate": "Yield Rate",
     "families": {
-      "engrais_poudre": "Powder Fertilizer",
-      "engrais_granules": "Granular Fertilizer",
-      "biostimulant": "Biostimulant",
-      "biocontrole": "Biocontrol",
-      "distribution": "Third-party Distribution"
+      "AMEO": "Amendments and organic fertilizers",
+      "BIOSTIMULANT": "Biostimulants",
+      "BIOCONTROLE": "Biocontrol",
+      "CORRECTEUR_CARENCES": "Deficiency correctors",
+      "DIVERS": "Miscellaneous"
+    },
+    "formulations": {
+      "POUDRE": "Powder",
+      "GRANULE": "Granule",
+      "WP": "Wettable powder (WP)",
+      "LIQUIDE": "Liquid",
+      "KIT": "Kit"
+    },
+    "origins": {
+      "GROUPE_LOCAL": "Group product (local)",
+      "GROUPE_IMPORTE": "Group product (imported)",
+      "TIERS": "Third-party product"
     },
     "categories": {
       "FINISHED_PRODUCT": "Finished Product",

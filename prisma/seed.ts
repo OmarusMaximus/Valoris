@@ -95,24 +95,25 @@ async function main() {
     console.log('Creating products...');
 
     const products = [
-      { code: 'PF-COMP-P01', name: 'Compost Poudre Premium', categoryId: catMap.CAT_PF, family: 'engrais_poudre', unit: 'KG' },
-      { code: 'PF-COMP-G01', name: 'Compost Granulés Standard', categoryId: catMap.CAT_PF, family: 'engrais_granules', unit: 'KG' },
-      { code: 'PF-BIO-S01', name: 'Biostimulant Racinaire', categoryId: catMap.CAT_PF, family: 'biostimulant', unit: 'L' },
-      { code: 'PF-BIO-C01', name: 'Agent Biocontrôle Foliaire', categoryId: catMap.CAT_PF, family: 'biocontrole', unit: 'L' },
-      { code: 'PF-DIST-01', name: 'Engrais NPK Tiers', categoryId: catMap.CAT_TIERS, family: 'distribution', unit: 'KG' },
-      { code: 'MP-ORG-01', name: 'Matière organique brute', categoryId: catMap.CAT_MP, family: null, unit: 'KG' },
-      { code: 'MP-MIN-01', name: 'Amendement minéral', categoryId: catMap.CAT_MP, family: null, unit: 'KG' },
-      { code: 'MP-BIO-01', name: 'Souches microbiennes', categoryId: catMap.CAT_MP, family: null, unit: 'L' },
-      { code: 'EMB-SAC-25', name: 'Sac 25kg', categoryId: catMap.CAT_EMB, family: null, unit: 'UNIT' },
-      { code: 'EMB-BIG-01', name: 'Big bag 500kg', categoryId: catMap.CAT_EMB, family: null, unit: 'UNIT' },
-      { code: 'PSF-COMP-01', name: 'Compost en cours de maturation', categoryId: catMap.CAT_PSF, family: 'engrais_poudre', unit: 'KG' },
+      { code: 'PF-AMEO-P01', name: 'Compost Premium Poudre', categoryId: catMap.CAT_PF, family: 'AMEO', formulation: 'POUDRE', origin: 'GROUPE_LOCAL', unit: 'KG' },
+      { code: 'PF-AMEO-G01', name: 'Compost Standard Granulé', categoryId: catMap.CAT_PF, family: 'AMEO', formulation: 'GRANULE', origin: 'GROUPE_LOCAL', unit: 'KG' },
+      { code: 'PF-BIO-S01', name: 'Biostimulant Racinaire', categoryId: catMap.CAT_PF, family: 'BIOSTIMULANT', formulation: 'LIQUIDE', origin: 'GROUPE_LOCAL', unit: 'L' },
+      { code: 'PF-BIO-C01', name: 'Biocontrôle Foliaire', categoryId: catMap.CAT_PF, family: 'BIOCONTROLE', formulation: 'WP', origin: 'GROUPE_LOCAL', unit: 'KG' },
+      { code: 'PF-CC-01', name: 'Correcteur Fer-Zinc', categoryId: catMap.CAT_PF, family: 'CORRECTEUR_CARENCES', formulation: 'LIQUIDE', origin: 'GROUPE_IMPORTE', unit: 'L' },
+      { code: 'PF-DIV-01', name: 'Engrais NPK Tiers', categoryId: catMap.CAT_TIERS, family: 'DIVERS', formulation: 'GRANULE', origin: 'TIERS', unit: 'KG' },
+      { code: 'MP-ORG-01', name: 'Matière organique brute', categoryId: catMap.CAT_MP, family: null, formulation: null, origin: 'GROUPE_LOCAL', unit: 'KG' },
+      { code: 'MP-MIN-01', name: 'Amendement minéral', categoryId: catMap.CAT_MP, family: null, formulation: null, origin: 'GROUPE_IMPORTE', unit: 'KG' },
+      { code: 'MP-BIO-01', name: 'Souches microbiennes', categoryId: catMap.CAT_MP, family: null, formulation: null, origin: 'GROUPE_IMPORTE', unit: 'L' },
+      { code: 'EMB-SAC-25', name: 'Sac 25kg', categoryId: catMap.CAT_EMB, family: null, formulation: null, origin: 'GROUPE_LOCAL', unit: 'UNIT' },
+      { code: 'EMB-BIG-01', name: 'Big bag 500kg', categoryId: catMap.CAT_EMB, family: null, formulation: null, origin: 'GROUPE_LOCAL', unit: 'UNIT' },
+      { code: 'PSF-COMP-01', name: 'Compost en cours de maturation', categoryId: catMap.CAT_PSF, family: 'AMEO', formulation: 'POUDRE', origin: 'GROUPE_LOCAL', unit: 'KG' },
     ];
 
     const productMap: Record<string, string> = {};
     for (const p of products) {
       const product = await tx.product.upsert({
         where: { code: p.code },
-        update: { name: p.name, categoryId: p.categoryId, family: p.family, unit: p.unit, entityId: entityMap.FR },
+        update: { name: p.name, categoryId: p.categoryId, family: p.family, formulation: p.formulation, origin: p.origin, unit: p.unit, entityId: entityMap.FR },
         create: { ...p, entityId: entityMap.FR },
       });
       productMap[p.code] = product.id;
@@ -125,9 +126,9 @@ async function main() {
     console.log('Creating BOM items...');
 
     const bomItems = [
-      { parentProductId: productMap['PF-COMP-P01'], childProductId: productMap['MP-ORG-01'], quantity: 1.2, unit: 'KG', yieldRate: 0.85 },
-      { parentProductId: productMap['PF-COMP-P01'], childProductId: productMap['MP-MIN-01'], quantity: 0.15, unit: 'KG', yieldRate: 1.0 },
-      { parentProductId: productMap['PF-COMP-P01'], childProductId: productMap['EMB-SAC-25'], quantity: 0.04, unit: 'UNIT', yieldRate: 1.0 },
+      { parentProductId: productMap['PF-AMEO-P01'], childProductId: productMap['MP-ORG-01'], quantity: 1.2, unit: 'KG', yieldRate: 0.85 },
+      { parentProductId: productMap['PF-AMEO-P01'], childProductId: productMap['MP-MIN-01'], quantity: 0.15, unit: 'KG', yieldRate: 1.0 },
+      { parentProductId: productMap['PF-AMEO-P01'], childProductId: productMap['EMB-SAC-25'], quantity: 0.04, unit: 'UNIT', yieldRate: 1.0 },
     ];
 
     for (const bom of bomItems) {
@@ -224,7 +225,7 @@ async function main() {
     const prodEntries = [
       {
         entityId: entityMap.FR,
-        productId: productMap['PF-COMP-P01'],
+        productId: productMap['PF-AMEO-P01'],
         period: '2026-03',
         enteredById: productionUserId,
         qtyProduced: 50000,
@@ -237,7 +238,7 @@ async function main() {
       },
       {
         entityId: entityMap.FR,
-        productId: productMap['PF-COMP-G01'],
+        productId: productMap['PF-AMEO-G01'],
         period: '2026-03',
         enteredById: productionUserId,
         qtyProduced: 30000,
@@ -290,11 +291,11 @@ async function main() {
 
     // Revenue budgets per product family
     const familyRevenue: Record<string, number> = {
-      engrais_poudre: 150000,
-      engrais_granules: 120000,
-      biostimulant: 80000,
-      biocontrole: 60000,
-      distribution: 45000,
+      AMEO: 270000,
+      BIOSTIMULANT: 80000,
+      BIOCONTROLE: 60000,
+      CORRECTEUR_CARENCES: 40000,
+      DIVERS: 45000,
     };
 
     for (const period of periods) {

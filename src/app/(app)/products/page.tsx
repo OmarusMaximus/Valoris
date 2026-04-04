@@ -41,7 +41,9 @@ type Product = {
   category?: { id: string; name: string } | null
   entityId: string
   unit: string
-  family: string
+  family: string | null
+  formulation: string | null
+  origin: string | null
   active: boolean
 }
 
@@ -52,17 +54,25 @@ type Category = {
 }
 
 const FAMILY_LABELS: Record<string, string> = {
-  engrais_poudre: "Engrais poudre",
-  engrais_liquide: "Engrais liquide",
-  engrais_granule: "Engrais granulé",
-  amendement: "Amendement",
-  semence: "Semence",
-  phyto: "Phytosanitaire",
-  matiere_premiere: "Matière première",
-  produit_semi_fini: "Produit semi-fini",
-  produit_fini: "Produit fini",
-  emballage: "Emballage",
-  autre: "Autre",
+  AMEO: "AMEO",
+  BIOSTIMULANT: "Biostimulants",
+  BIOCONTROLE: "Biocontrôle",
+  CORRECTEUR_CARENCES: "Correcteurs carences",
+  DIVERS: "Divers",
+}
+
+const FORMULATION_LABELS: Record<string, string> = {
+  POUDRE: "Poudre",
+  GRANULE: "Granulé",
+  WP: "WP",
+  LIQUIDE: "Liquide",
+  KIT: "Kit",
+}
+
+const ORIGIN_LABELS: Record<string, string> = {
+  GROUPE_LOCAL: "Groupe (local)",
+  GROUPE_IMPORTE: "Groupe (importé)",
+  TIERS: "Tiers",
 }
 
 const UNIT_OPTIONS = [
@@ -76,6 +86,16 @@ const FAMILY_OPTIONS = Object.entries(FAMILY_LABELS).map(([value, label]) => ({
   label,
 }))
 
+const FORMULATION_OPTIONS = Object.entries(FORMULATION_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
+
+const ORIGIN_OPTIONS = Object.entries(ORIGIN_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
+
 type ProductFormData = {
   code: string
   name: string
@@ -83,6 +103,8 @@ type ProductFormData = {
   entityId: string
   unit: string
   family: string
+  formulation: string
+  origin: string
 }
 
 const emptyForm: ProductFormData = {
@@ -91,7 +113,9 @@ const emptyForm: ProductFormData = {
   categoryId: "",
   entityId: "",
   unit: "KG",
-  family: "produit_fini",
+  family: "",
+  formulation: "",
+  origin: "",
 }
 
 export default function ProductsPage() {
@@ -162,7 +186,9 @@ export default function ProductsPage() {
       categoryId: product.categoryId || "",
       entityId: product.entityId,
       unit: product.unit,
-      family: product.family,
+      family: product.family || "",
+      formulation: product.formulation || "",
+      origin: product.origin || "",
     })
     setDialogOpen(true)
   }
@@ -259,6 +285,8 @@ export default function ProductsPage() {
                   <TableHead>Nom</TableHead>
                   <TableHead>Catégorie</TableHead>
                   <TableHead>Famille</TableHead>
+                  <TableHead>Formulation</TableHead>
+                  <TableHead>Origine</TableHead>
                   <TableHead>Unité</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -278,7 +306,13 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category?.name || "—"}</TableCell>
                     <TableCell>
-                      {FAMILY_LABELS[product.family] || product.family}
+                      {product.family ? (FAMILY_LABELS[product.family] || product.family) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {product.formulation ? (FORMULATION_LABELS[product.formulation] || product.formulation) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {product.origin ? (ORIGIN_LABELS[product.origin] || product.origin) : "—"}
                     </TableCell>
                     <TableCell>{product.unit}</TableCell>
                     <TableCell>
@@ -391,10 +425,48 @@ export default function ProductsPage() {
                   onValueChange={(v) => setForm({ ...form, family: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Sélectionner" />
                   </SelectTrigger>
                   <SelectContent>
                     {FAMILY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Formulation</Label>
+                <Select
+                  value={form.formulation}
+                  onValueChange={(v) => setForm({ ...form, formulation: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FORMULATION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Origine</Label>
+                <Select
+                  value={form.origin}
+                  onValueChange={(v) => setForm({ ...form, origin: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORIGIN_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>

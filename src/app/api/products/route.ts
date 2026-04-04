@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
     const entityId = searchParams.get('entityId')
     const categoryId = searchParams.get('categoryId')
     const family = searchParams.get('family')
+    const formulation = searchParams.get('formulation')
+    const origin = searchParams.get('origin')
     const search = searchParams.get('search')
 
     const where: Record<string, unknown> = { active: true }
     if (entityId) where.entityId = entityId
     if (categoryId) where.categoryId = categoryId
     if (family) where.family = family
+    if (formulation) where.formulation = formulation
+    if (origin) where.origin = origin
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { code, name, categoryId, entityId, unit, family } = body
+    const { code, name, categoryId, entityId, unit, family, formulation, origin } = body
 
     if (!code || !name || !categoryId || !entityId) {
       return NextResponse.json(
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const product = await prisma.product.create({
-      data: { code, name, categoryId, entityId, unit, family },
+      data: { code, name, categoryId, entityId, unit, family, formulation, origin },
       include: { category: true },
     })
 

@@ -61,11 +61,23 @@
     "addBomItem": "Ajouter composant",
     "yieldRate": "Rendement",
     "families": {
-      "engrais_poudre": "Engrais poudre",
-      "engrais_granules": "Engrais granulés",
-      "biostimulant": "Biostimulant",
-      "biocontrole": "Biocontrôle",
-      "distribution": "Distribution tiers"
+      "AMEO": "Amendements et engrais organiques",
+      "BIOSTIMULANT": "Biostimulants",
+      "BIOCONTROLE": "Biocontrôle",
+      "CORRECTEUR_CARENCES": "Correcteurs de carences",
+      "DIVERS": "Divers"
+    },
+    "formulations": {
+      "POUDRE": "Poudre",
+      "GRANULE": "Granulé",
+      "WP": "Poudre mouillable (WP)",
+      "LIQUIDE": "Liquide",
+      "KIT": "Kit"
+    },
+    "origins": {
+      "GROUPE_LOCAL": "Produit groupe (local)",
+      "GROUPE_IMPORTE": "Produit groupe (importé)",
+      "TIERS": "Produit tiers"
     },
     "categories": {
       "FINISHED_PRODUCT": "Produit fini",
