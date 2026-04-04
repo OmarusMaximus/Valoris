@@ -1,0 +1,353 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  role          String   // ADMIN, FPA_DIRECTOR, FPA_ANALYST, PRODUCTION_MANAGER, SUPPLY_MANAGER, SUBSIDIARY_MANAGER, LOCAL_FINANCE_MANAGER
+  entityId      String?
+  entity        Entity?  @relation(fields: [entityId], references: [id])
+  locale        String   @default("fr")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  costSheetSubmissions CostSheet[]       @relation("SubmittedBy")
+  costSheetValidations CostSheet[]       @relation("ValidatedBy")
+  productionEntries    ProductionEntry[]
+  importSessions       ImportSession[]
+  reallocations        Reallocation[]
+  notifications        Notification[]
+}
+
+// ============================================================
+// ENTITIES (Multi-entity group)
+// ============================================================
+
+model Entity {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  country   String
+  currency  String   @default("EUR")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  products          Product[]
+  productionEntries ProductionEntry[]
+  importSessions    ImportSession[]
+  costSheets        CostSheet[]
+  stockValuations   StockValuation[]
+  reallocations     Reallocation[]
+}
+
+// ============================================================
+// PRODUCTS & BOM (Nomenclature)
+// ============================================================
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  type      String    // FINISHED_PRODUCT, RAW_MATERIAL, SEMI_FINISHED, PACKAGING, THIRD_PARTY
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  name         String
+  categoryId   String
+  category     ProductCategory @relation(fields: [categoryId], references: [id])
+  entityId     String
+  entity       Entity          @relation(fields: [entityId], references: [id])
+  unit         String          @default("KG")
+  family       String?         // engrais_poudre, engrais_granules, biostimulant, biocontrole, distribution
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  bomItems          BOMItem[]           @relation("ParentProduct")
+  bomUsedIn         BOMItem[]           @relation("ChildProduct")
+  productionEntries ProductionEntry[]
+  costSheetLines    CostSheetLine[]
+  stockValuations   StockValuation[]
+}
+
+model BOMItem {
+  id              String  @id @default(cuid())
+  parentProductId String
+  parentProduct   Product @relation("ParentProduct", fields: [parentProductId], references: [id])
+  childProductId  String
+  childProduct    Product @relation("ChildProduct", fields: [childProductId], references: [id])
+  quantity        Float
+  unit            String  @default("KG")
+  yieldRate       Float   @default(1.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parentProductId, childProductId])
+}
+
+// ============================================================
+// PRODUCTION ENTRIES (Monthly input)
+// ============================================================
+
+model ProductionEntry {
+  id             String  @id @default(cuid())
+  entityId       String
+  entity         Entity  @relation(fields: [entityId], references: [id])
+  productId      String
+  product        Product @relation(fields: [productId], references: [id])
+  period         String  // YYYY-MM
+  enteredById    String
+  enteredBy      User    @relation(fields: [enteredById], references: [id])
+  qtyProduced    Float   @default(0)
+  qtyConsumedMP  Float   @default(0)
+  qtyPSF         Float   @default(0)
+  psfAdvancement Float   @default(0)
+  unitPriceMP    Float   @default(0)
+  stockInitial   Float   @default(0)
+  stockFinal     Float   @default(0)
+  yieldRate      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityId, productId, period])
+}
+
+// ============================================================
+// ACCOUNTING IMPORT
+// ============================================================
+
+model ImportSession {
+  id           String   @id @default(cuid())
+  entityId     String
+  entity       Entity   @relation(fields: [entityId], references: [id])
+  period       String
+  source       String   // BOARD_COM, SAGE_X3
+  fileName     String
+  importedById String
+  importedBy   User     @relation(fields: [importedById], references: [id])
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lines ImportLine[]
+}
+
+model ImportLine {
+  id              String        @id @default(cuid())
+  importSessionId String
+  importSession   ImportSession @relation(fields: [importSessionId], references: [id], onDelete: Cascade)
+  accountCode     String
+  accountName     String?
+  amount          Float
+  costCategoryId  String?
+  costCategory    CostCategory? @relation(fields: [costCategoryId], references: [id])
+  analyticalAxis  String?
+  mapped          Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// ============================================================
+// COST CATEGORIES & ACCOUNT MAPPING
+// ============================================================
+
+model CostCategory {
+  id                          String  @id @default(cuid())
+  code                        String  @unique
+  name                        String
+  type                        String  // MP, MOD, OVERHEAD_PROD, COMMERCIAL, LOGISTICS, ADMIN, OTHER
+  isVariable                  Boolean @default(true)
+  includeInContributionMargin Boolean @default(false)
+  sortOrder                   Int     @default(0)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  accountMappings AccountMapping[]
+  importLines     ImportLine[]
+  costSheetLines  CostSheetLine[]
+  allocationRules AllocationRule[]
+}
+
+model AccountMapping {
+  id             String       @id @default(cuid())
+  accountCode    String
+  accountName    String?
+  costCategoryId String
+  costCategory   CostCategory @relation(fields: [costCategoryId], references: [id])
+  source         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([accountCode, source])
+}
+
+// ============================================================
+// REALLOCATIONS
+// ============================================================
+
+model AllocationRule {
+  id             String       @id @default(cuid())
+  name           String
+  costCategoryId String
+  costCategory   CostCategory @relation(fields: [costCategoryId], references: [id])
+  sourceAxis     String
+  targetAxis     String
+  method         String       // PERCENTAGE, VOLUME, HEADCOUNT, MANUAL
+  percentage     Float?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Reallocation {
+  id            String   @id @default(cuid())
+  entityId      String
+  entity        Entity   @relation(fields: [entityId], references: [id])
+  period        String
+  description   String
+  sourceAxis    String
+  targetAxis    String
+  amount        Float
+  performedById String
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================================
+// STOCK VALUATION
+// ============================================================
+
+model StockValuation {
+  id                String  @id @default(cuid())
+  entityId          String
+  entity            Entity  @relation(fields: [entityId], references: [id])
+  productId         String
+  product           Product @relation(fields: [productId], references: [id])
+  period            String
+  method            String  // CUMP, FIFO, STANDARD
+  mpCost            Float   @default(0)
+  transformationPct Float   @default(0)
+  transformationCost Float  @default(0)
+  totalPSFValue     Float   @default(0)
+  stockQty          Float   @default(0)
+  unitCost          Float   @default(0)
+  totalValue        Float   @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([entityId, productId, period])
+}
+
+// ============================================================
+// COST SHEETS & WORKFLOW
+// ============================================================
+
+model CostSheet {
+  id            String    @id @default(cuid())
+  entityId      String
+  entity        Entity    @relation(fields: [entityId], references: [id])
+  period        String
+  status        String    @default("DRAFT")
+  costingMethod String    @default("CUMP")
+  submittedById String?
+  submittedBy   User?     @relation("SubmittedBy", fields: [submittedById], references: [id])
+  submittedAt   DateTime?
+  validatedById String?
+  validatedBy   User?     @relation("ValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+  rejectionReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lines         CostSheetLine[]
+  notifications Notification[]
+
+  @@unique([entityId, period])
+}
+
+model CostSheetLine {
+  id                 String       @id @default(cuid())
+  costSheetId        String
+  costSheet          CostSheet    @relation(fields: [costSheetId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product      @relation(fields: [productId], references: [id])
+  costCategoryId     String
+  costCategory       CostCategory @relation(fields: [costCategoryId], references: [id])
+  amount             Float        @default(0)
+  unitCost           Float        @default(0)
+  quantity           Float        @default(0)
+  revenue            Float        @default(0)
+  grossMargin        Float        @default(0)
+  contributionMargin Float        @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ============================================================
+// BUDGET
+// ============================================================
+
+model Budget {
+  id               String   @id @default(cuid())
+  entityId         String
+  period           String
+  productFamily    String?
+  costCategoryCode String?
+  amount           Float    @default(0)
+  revenue          Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([entityId, period, productFamily, costCategoryCode])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  costSheetId String?
+  costSheet   CostSheet? @relation(fields: [costSheetId], references: [id])
+  type        String
+  message     String
+  read        Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+}
+
+// ============================================================
+// SYSTEM SETTINGS
+// ============================================================
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
