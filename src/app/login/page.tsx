@@ -30,7 +30,7 @@ export default function LoginPage() {
         setError(data.error || "Erreur de connexion")
         return
       }
-      router.push("/")
+      window.location.href = "/"
     } catch {
       setError("Erreur de connexion")
     } finally {
