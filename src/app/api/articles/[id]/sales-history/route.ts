@@ -50,7 +50,7 @@ export async function POST(
 
     const { id } = await params
     const body = await request.json()
-    const { period, revenue, qtySold, avgPrice, variableCost } = body
+    const { period, revenue, qtySold, avgPrice, variableCost, customerId, salesRepId } = body
 
     if (!period || revenue == null || qtySold == null || avgPrice == null || variableCost == null) {
       return NextResponse.json(
@@ -66,13 +66,14 @@ export async function POST(
 
     const entry = await prisma.articleSalesHistory.upsert({
       where: {
-        articleId_period: {
+        articleId_period_customerId: {
           articleId: id,
           period,
+          customerId: customerId ?? '',
         },
       },
-      update: { revenue, qtySold, avgPrice, variableCost },
-      create: { articleId: id, period, revenue, qtySold, avgPrice, variableCost },
+      update: { revenue, qtySold, avgPrice, variableCost, salesRepId: salesRepId ?? null },
+      create: { articleId: id, period, customerId: customerId ?? null, salesRepId: salesRepId ?? null, revenue, qtySold, avgPrice, variableCost },
     })
 
     return NextResponse.json(entry, { status: 201 })

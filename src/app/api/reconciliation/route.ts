@@ -159,7 +159,7 @@ async function amountReconciliation(entityId: string, period: string) {
   }
 
   // Merge all category IDs
-  const allCategoryIds = new Set([...importByCategory.keys(), ...costSheetByCategory.keys()])
+  const allCategoryIds = new Set([...Array.from(importByCategory.keys()), ...Array.from(costSheetByCategory.keys())])
   const items: {
     costCategoryCode: string
     costCategoryName: string
@@ -170,7 +170,7 @@ async function amountReconciliation(entityId: string, period: string) {
     severity: 'OK' | 'WARNING' | 'CRITICAL'
   }[] = []
 
-  for (const catId of allCategoryIds) {
+  for (const catId of Array.from(allCategoryIds)) {
     const imp = importByCategory.get(catId)
     const cs = costSheetByCategory.get(catId)
     const importAmount = round2(imp?.amount || 0)
@@ -260,7 +260,7 @@ async function getCostSheetDataByProduct(entityId: string, period: string) {
   }
 
   // Compute derived values
-  for (const pd of productMap.values()) {
+  for (const pd of Array.from(productMap.values())) {
     pd.unitCost = pd.qty > 0 ? pd.totalCost / pd.qty : 0
     pd.marginPct = pd.revenue > 0 ? ((pd.revenue - pd.totalCost) / pd.revenue) * 100 : 0
   }
@@ -332,7 +332,7 @@ async function variationAlerts(entityId: string, period: string) {
 
     if (refData.size === 0) continue
 
-    for (const [pid, cur] of currentData) {
+    for (const [pid, cur] of Array.from(currentData.entries())) {
       const ref = refData.get(pid)
       if (!ref) continue
 

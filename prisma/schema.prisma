@@ -120,16 +120,54 @@ model Article {
 }
 
 model ArticleSalesHistory {
-  id          String  @id @default(cuid())
-  articleId   String
-  article     Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  period      String  // YYYY-MM
-  revenue     Float   @default(0)
-  qtySold     Float   @default(0)
-  avgPrice    Float   @default(0)   // prix moyen de vente
-  variableCost Float  @default(0)   // coût variable unitaire
+  id           String   @id @default(cuid())
+  articleId    String
+  article      Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  period       String   // YYYY-MM
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  salesRepId   String?
+  salesRep     SalesRep? @relation(fields: [salesRepId], references: [id])
+  revenue      Float    @default(0)
+  qtySold      Float    @default(0)
+  avgPrice     Float    @default(0)
+  variableCost Float    @default(0)
 
-  @@unique([articleId, period])
+  @@unique([articleId, period, customerId])
+}
+
+// ============================================================
+// CUSTOMERS & SALES REPS
+// ============================================================
+
+model Customer {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String?  // COOPERATIVE, DISTRIBUTEUR, DIRECT, EXPORT
+  region    String?
+  country   String?
+  entityId  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salesHistory ArticleSalesHistory[]
+}
+
+model SalesRep {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  firstName String
+  lastName  String
+  email     String?
+  region    String?
+  entityId  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salesHistory ArticleSalesHistory[]
 }
 
 model BOMItem {

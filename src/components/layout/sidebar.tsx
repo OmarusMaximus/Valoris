@@ -20,6 +20,11 @@ import {
   Bell,
   BookOpen,
   Tag,
+  AlertTriangle,
+  Users,
+  UserCheck,
+  FileUp,
+  Trophy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
@@ -29,15 +34,20 @@ const navItems = [
   { href: "/", icon: LayoutDashboard, labelKey: "dashboard" },
   { href: "/products", icon: Package, labelKey: "products" },
   { href: "/articles", icon: Tag, labelKey: "articles" },
+  { href: "/customers", icon: Users, labelKey: "customers" },
+  { href: "/sales-reps", icon: UserCheck, labelKey: "salesReps" },
+  { href: "/sales-import", icon: FileUp, labelKey: "salesImport" },
   { href: "/production", icon: Factory, labelKey: "production" },
   { href: "/import", icon: Upload, labelKey: "import" },
   { href: "/reallocations", icon: ArrowLeftRight, labelKey: "reallocations" },
   { href: "/stock-valuation", icon: Warehouse, labelKey: "stockValuation" },
   { href: "/cost-sheets", icon: FileSpreadsheet, labelKey: "costSheets" },
   { href: "/variance-analysis", icon: BarChart3, labelKey: "varianceAnalysis" },
+  { href: "/reconciliation", icon: AlertTriangle, labelKey: "reconciliation" },
   { href: "/scenarios", icon: GitCompare, labelKey: "scenarios" },
   { href: "/setup", icon: Settings2, labelKey: "setup" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
+  { href: "/league-tables", icon: Trophy, labelKey: "leagueTables" },
   { href: "/onboarding", icon: BookOpen, labelKey: "onboarding" },
 ]
 
@@ -51,9 +61,14 @@ const labels: Record<string, string> = {
   stockValuation: "Valorisation stocks",
   costSheets: "Feuilles de costing",
   varianceAnalysis: "Analyse des écarts",
+  reconciliation: "Réconciliation",
   scenarios: "Scénarios",
+  customers: "Clients",
+  salesReps: "Commerciaux",
+  salesImport: "Import ventes",
   setup: "Configuration initiale",
   settings: "Paramètres",
+  leagueTables: "League Tables",
   onboarding: "Guide de démarrage",
 }
 

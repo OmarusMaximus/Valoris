@@ -180,19 +180,70 @@ async function main() {
     console.log(`  ✓ ${articleDefs.length} articles created`);
 
     // ============================================================
-    // 5c. ARTICLE SALES HISTORY (sample data for first 3 articles)
+    // 5c. CUSTOMERS
+    // ============================================================
+    console.log('Creating customers...');
+
+    const customerDefs = [
+      { code: 'CLI-COOP-01', name: 'Coopérative Agricole du Sud', type: 'COOPERATIVE', region: 'Sud', country: 'France' },
+      { code: 'CLI-COOP-02', name: 'Coopérative Céréalière Nord', type: 'COOPERATIVE', region: 'Nord', country: 'France' },
+      { code: 'CLI-DIST-01', name: 'AgroDistrib France', type: 'DISTRIBUTEUR', region: 'National', country: 'France' },
+      { code: 'CLI-DIST-02', name: 'Phyto Distribution', type: 'DISTRIBUTEUR', region: 'Ouest', country: 'France' },
+      { code: 'CLI-DIR-01', name: 'Domaine des Vignes', type: 'DIRECT', region: 'Sud-Est', country: 'France' },
+      { code: 'CLI-EXP-01', name: 'Morocco Agri Import', type: 'EXPORT', region: 'International', country: 'Maroc' },
+    ];
+
+    const customerMap: Record<string, string> = {};
+    for (const c of customerDefs) {
+      const customer = await tx.customer.upsert({
+        where: { code: c.code },
+        update: { name: c.name, type: c.type, region: c.region, country: c.country, entityId: entityMap.FR },
+        create: { ...c, entityId: entityMap.FR },
+      });
+      customerMap[c.code] = customer.id;
+    }
+    console.log(`  ✓ ${customerDefs.length} customers created`);
+
+    // ============================================================
+    // 5d. SALES REPS
+    // ============================================================
+    console.log('Creating sales reps...');
+
+    const salesRepDefs = [
+      { code: 'COM-01', firstName: 'Thomas', lastName: 'Girard', email: 'thomas.girard@valoris.com', region: 'Sud' },
+      { code: 'COM-02', firstName: 'Julie', lastName: 'Roche', email: 'julie.roche@valoris.com', region: 'Nord' },
+      { code: 'COM-03', firstName: 'Marc', lastName: 'Faure', email: 'marc.faure@valoris.com', region: 'Ouest' },
+      { code: 'COM-04', firstName: 'Isabelle', lastName: 'Blanc', email: 'isabelle.blanc@valoris.com', region: 'National' },
+    ];
+
+    const salesRepMap: Record<string, string> = {};
+    for (const sr of salesRepDefs) {
+      const salesRep = await tx.salesRep.upsert({
+        where: { code: sr.code },
+        update: { firstName: sr.firstName, lastName: sr.lastName, email: sr.email, region: sr.region, entityId: entityMap.FR },
+        create: { ...sr, entityId: entityMap.FR },
+      });
+      salesRepMap[sr.code] = salesRep.id;
+    }
+    console.log(`  ✓ ${salesRepDefs.length} sales reps created`);
+
+    // ============================================================
+    // 5e. ARTICLE SALES HISTORY (with customer + sales rep distribution)
     // ============================================================
     console.log('Creating article sales history...');
 
     const salesHistoryData: Array<{
       articleCode: string;
       period: string;
+      customerCode: string;
+      salesRepCode: string;
       revenue: number;
       qtySold: number;
       avgPrice: number;
       variableCost: number;
     }> = [];
 
+    // Distribution: split each article's monthly totals across customer/salesRep pairs
     // ART-AMEO-P01-25: Compost Poudre 25kg - steady growth, seasonal dip in Dec
     const art1Periods = [
       { period: '2025-10', revenue: 14800, qtySold: 820, avgPrice: 18.05, variableCost: 9950 },
@@ -202,8 +253,11 @@ async function main() {
       { period: '2026-02', revenue: 17400, qtySold: 950, avgPrice: 18.32, variableCost: 11700 },
       { period: '2026-03', revenue: 18900, qtySold: 1020, avgPrice: 18.53, variableCost: 12650 },
     ];
+    // Split: 40% COOP-01/COM-01, 30% DIST-01/COM-04, 30% DIR-01/COM-01
     for (const p of art1Periods) {
-      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-25', ...p });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-25', customerCode: 'CLI-COOP-01', salesRepCode: 'COM-01', ...p, revenue: Math.round(p.revenue * 0.4), qtySold: Math.round(p.qtySold * 0.4), variableCost: Math.round(p.variableCost * 0.4) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-25', customerCode: 'CLI-DIST-01', salesRepCode: 'COM-04', ...p, revenue: Math.round(p.revenue * 0.3), qtySold: Math.round(p.qtySold * 0.3), variableCost: Math.round(p.variableCost * 0.3) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-25', customerCode: 'CLI-DIR-01', salesRepCode: 'COM-01', ...p, revenue: Math.round(p.revenue * 0.3), qtySold: Math.round(p.qtySold * 0.3), variableCost: Math.round(p.variableCost * 0.3) });
     }
 
     // ART-AMEO-P01-500: Compost Poudre Big Bag - larger volumes, B2B pattern
@@ -215,8 +269,11 @@ async function main() {
       { period: '2026-02', revenue: 54400, qtySold: 172, avgPrice: 316.28, variableCost: 37100 },
       { period: '2026-03', revenue: 57600, qtySold: 182, avgPrice: 316.48, variableCost: 39500 },
     ];
+    // Split: 50% COOP-02/COM-02, 30% DIST-02/COM-03, 20% EXP-01/COM-04
     for (const p of art2Periods) {
-      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-500', ...p });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-500', customerCode: 'CLI-COOP-02', salesRepCode: 'COM-02', ...p, revenue: Math.round(p.revenue * 0.5), qtySold: Math.round(p.qtySold * 0.5), variableCost: Math.round(p.variableCost * 0.5) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-500', customerCode: 'CLI-DIST-02', salesRepCode: 'COM-03', ...p, revenue: Math.round(p.revenue * 0.3), qtySold: Math.round(p.qtySold * 0.3), variableCost: Math.round(p.variableCost * 0.3) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-P01-500', customerCode: 'CLI-EXP-01', salesRepCode: 'COM-04', ...p, revenue: Math.round(p.revenue * 0.2), qtySold: Math.round(p.qtySold * 0.2), variableCost: Math.round(p.variableCost * 0.2) });
     }
 
     // ART-AMEO-G01-25: Compost Granulé 25kg - strong spring demand
@@ -228,21 +285,42 @@ async function main() {
       { period: '2026-02', revenue: 22000, qtySold: 1005, avgPrice: 21.89, variableCost: 14900 },
       { period: '2026-03', revenue: 24200, qtySold: 1100, avgPrice: 22.00, variableCost: 16400 },
     ];
+    // Split: 35% COOP-01/COM-01, 25% COOP-02/COM-02, 25% DIST-01/COM-03, 15% DIR-01/COM-01
     for (const p of art3Periods) {
-      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', ...p });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', customerCode: 'CLI-COOP-01', salesRepCode: 'COM-01', ...p, revenue: Math.round(p.revenue * 0.35), qtySold: Math.round(p.qtySold * 0.35), variableCost: Math.round(p.variableCost * 0.35) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', customerCode: 'CLI-COOP-02', salesRepCode: 'COM-02', ...p, revenue: Math.round(p.revenue * 0.25), qtySold: Math.round(p.qtySold * 0.25), variableCost: Math.round(p.variableCost * 0.25) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', customerCode: 'CLI-DIST-01', salesRepCode: 'COM-03', ...p, revenue: Math.round(p.revenue * 0.25), qtySold: Math.round(p.qtySold * 0.25), variableCost: Math.round(p.variableCost * 0.25) });
+      salesHistoryData.push({ articleCode: 'ART-AMEO-G01-25', customerCode: 'CLI-DIR-01', salesRepCode: 'COM-01', ...p, revenue: Math.round(p.revenue * 0.15), qtySold: Math.round(p.qtySold * 0.15), variableCost: Math.round(p.variableCost * 0.15) });
     }
 
     for (const sh of salesHistoryData) {
-      const { articleCode, ...data } = sh;
+      const { articleCode, customerCode, salesRepCode, ...data } = sh;
+      const cId = customerMap[customerCode];
       await tx.articleSalesHistory.upsert({
         where: {
-          articleId_period: {
+          articleId_period_customerId: {
             articleId: articleMap[articleCode],
             period: data.period,
+            customerId: cId,
           },
         },
-        update: { revenue: data.revenue, qtySold: data.qtySold, avgPrice: data.avgPrice, variableCost: data.variableCost },
-        create: { articleId: articleMap[articleCode], ...data },
+        update: {
+          revenue: data.revenue,
+          qtySold: data.qtySold,
+          avgPrice: data.avgPrice,
+          variableCost: data.variableCost,
+          salesRepId: salesRepMap[salesRepCode],
+        },
+        create: {
+          articleId: articleMap[articleCode],
+          period: data.period,
+          customerId: cId,
+          salesRepId: salesRepMap[salesRepCode],
+          revenue: data.revenue,
+          qtySold: data.qtySold,
+          avgPrice: data.avgPrice,
+          variableCost: data.variableCost,
+        },
       });
     }
     console.log(`  ✓ ${salesHistoryData.length} sales history entries created`);
