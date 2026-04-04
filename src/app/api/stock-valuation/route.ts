@@ -20,11 +20,33 @@ export async function GET(request: NextRequest) {
 
     const valuations = await prisma.stockValuation.findMany({
       where,
-      include: { product: true, entity: true },
+      include: { product: { include: { category: true } }, entity: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(valuations)
+    const psf = valuations
+      .filter((v) => v.product.category.type === 'SEMI_FINISHED')
+      .map((v) => ({
+        id: v.id,
+        product: v.product.name,
+        mpCostEngaged: v.mpCost,
+        advancementPercent: v.transformationPct * 100,
+        transformationCost: v.transformationCost,
+        totalPSFValue: v.totalPSFValue,
+      }))
+
+    const finishedProducts = valuations
+      .filter((v) => v.product.category.type !== 'SEMI_FINISHED')
+      .map((v) => ({
+        id: v.id,
+        product: v.product.name,
+        stockQty: v.stockQty,
+        unitCost: v.unitCost,
+        totalValue: v.totalValue,
+        method: v.method,
+      }))
+
+    return NextResponse.json({ psf, finishedProducts })
   } catch (error) {
     console.error('Get stock valuations error:', error)
     return NextResponse.json(
