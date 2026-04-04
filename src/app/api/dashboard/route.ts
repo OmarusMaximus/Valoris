@@ -142,14 +142,39 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Convert costBreakdown from Record to array for client
+    const costBreakdownArray = Object.entries(costBreakdown).map(([type, value]) => ({
+      name: type,
+      type,
+      value,
+    }))
+
+    // Convert marginByProduct to match client format
+    const marginByProductFormatted = marginByProduct.map((p) => ({
+      name: p.productName,
+      grossMargin: p.grossMargin,
+      contributionMargin: p.contributionMargin,
+    }))
+
+    // Convert monthlyEvolution to include label
+    const monthlyEvolutionFormatted = monthlyEvolution.map((m) => ({
+      ...m,
+      label: m.period,
+    }))
+
+    const grossMarginPercent = totalRevenue > 0 ? grossMargin / totalRevenue : 0
+    const contributionMarginPercent = totalRevenue > 0 ? contributionMargin / totalRevenue : 0
+
     return NextResponse.json({
       totalRevenue,
       totalCosts,
       grossMargin,
+      grossMarginPercent,
       contributionMargin,
-      marginByProduct,
-      costBreakdown,
-      monthlyEvolution,
+      contributionMarginPercent,
+      marginByProduct: marginByProductFormatted,
+      costBreakdown: costBreakdownArray,
+      monthlyEvolution: monthlyEvolutionFormatted,
     })
   } catch (error) {
     console.error('Dashboard error:', error)
