@@ -63,7 +63,7 @@ export function calculateYield(qtyProduced: number, qtyConsumedMP: number): numb
 export async function calculateCostSheet(
   entityId: string,
   period: string,
-  costingMethod: CostingMethod
+  _costingMethod: CostingMethod
 ): Promise<CostCalculationResult[]> {
   // Get all products for entity
   const products = await prisma.product.findMany({

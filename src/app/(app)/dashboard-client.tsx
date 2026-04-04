@@ -277,7 +277,7 @@ export function DashboardClient() {
                   />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value) => formatCurrency(Number(value))}
                   />
                   <Legend />
                   <Bar
@@ -315,7 +315,7 @@ export function DashboardClient() {
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value) => formatCurrency(Number(value))}
                   />
                   <Legend />
                   <Line
@@ -365,7 +365,7 @@ export function DashboardClient() {
                     dataKey="value"
                     nameKey="name"
                     label={({ name, percent }) =>
-                      `${name} (${(percent * 100).toFixed(1)}%)`
+                      `${name} (${((percent ?? 0) * 100).toFixed(1)}%)`
                     }
                     labelLine
                   >
@@ -377,7 +377,7 @@ export function DashboardClient() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value) => formatCurrency(Number(value))}
                   />
                 </PieChart>
               </ResponsiveContainer>

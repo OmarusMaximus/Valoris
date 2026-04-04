@@ -100,7 +100,7 @@ export default function ImportPage() {
   // History state
   const [sessions, setSessions] = useState<ImportSession[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [viewingSession, setViewingSession] = useState<ImportSession | null>(null)
+  // viewingSession tracking removed — currentSession handles display
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -272,7 +272,7 @@ export default function ImportPage() {
       const res = await fetch(`/api/import/${session.id}`)
       if (res.ok) {
         const data = await res.json()
-        setViewingSession(data)
+        // setViewingSession(data)
         setCurrentSession(data)
         setActiveTab("import")
       }
@@ -284,7 +284,7 @@ export default function ImportPage() {
   const resetImport = () => {
     setFile(null)
     setCurrentSession(null)
-    setViewingSession(null)
+    // setViewingSession(null)
     setUploadProgress(0)
   }
 
