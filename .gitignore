@@ -15,8 +15,8 @@ node_modules
 npm-debug.log*
 
 # prisma
-prisma/dev.db
-prisma/dev.db-journal
+*.db
+*.db-journal
 src/generated/
 
 # typescript
