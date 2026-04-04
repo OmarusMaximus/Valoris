@@ -34,6 +34,7 @@ const navItems = [
   { href: "/scenarios", icon: GitCompare, labelKey: "scenarios" },
   { href: "/setup", icon: Settings2, labelKey: "setup" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
+  { href: "/onboarding", icon: BookOpen, labelKey: "onboarding" },
 ]
 
 const labels: Record<string, string> = {
@@ -45,7 +46,9 @@ const labels: Record<string, string> = {
   stockValuation: "Valorisation stocks",
   costSheets: "Feuilles de costing",
   scenarios: "Scénarios",
+  setup: "Configuration initiale",
   settings: "Paramètres",
+  onboarding: "Guide de démarrage",
 }
 
 export function Sidebar() {
@@ -90,6 +93,7 @@ export function Sidebar() {
             item.href === "/"
               ? pathname === "/"
               : pathname.startsWith(item.href)
+          const isOnboarding = item.labelKey === "onboarding"
           return (
             <Link
               key={item.href}
@@ -98,11 +102,22 @@ export function Sidebar() {
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-slate-100 text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  : isOnboarding
+                    ? "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               )}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {sidebarOpen && <span>{labels[item.labelKey]}</span>}
+              <item.icon className={cn("h-5 w-5 shrink-0", isOnboarding && !isActive && "text-emerald-600")} />
+              {sidebarOpen && (
+                <span className="flex items-center gap-2">
+                  {labels[item.labelKey]}
+                  {isOnboarding && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      Nouveau
+                    </span>
+                  )}
+                </span>
+              )}
             </Link>
           )
         })}
