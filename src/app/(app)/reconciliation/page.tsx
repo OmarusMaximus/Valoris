@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useAppStore } from "@/store/app-store"
-import { formatCurrency, formatNumber, formatPercent, cn, getPeriodLabel } from "@/lib/utils"
+import { formatNumber, cn, getPeriodLabel } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -104,12 +104,6 @@ const severityColor = {
   OK: "bg-emerald-100 text-emerald-800 border-emerald-200",
   WARNING: "bg-amber-100 text-amber-800 border-amber-200",
   CRITICAL: "bg-red-100 text-red-800 border-red-200",
-}
-
-const severityDot = {
-  OK: "bg-emerald-500",
-  WARNING: "bg-amber-500",
-  CRITICAL: "bg-red-500",
 }
 
 const alertTypeConfig: Record<VariationAlert["type"], { icon: typeof TrendingUp; color: string; label: string }> = {

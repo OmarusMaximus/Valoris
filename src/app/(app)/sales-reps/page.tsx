@@ -21,7 +21,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { cn, formatCurrency, formatNumber } from "@/lib/utils"
+import { formatCurrency, formatNumber } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
 import {
   Loader2,

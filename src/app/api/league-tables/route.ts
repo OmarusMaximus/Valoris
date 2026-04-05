@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     })
 
     let items: unknown[] = []
-    let totals = { totalRevenue: 0, totalQty: 0, totalMargin: 0 }
+    const totals = { totalRevenue: 0, totalQty: 0, totalMargin: 0 }
 
     // Compute totals
     for (const sh of salesHistory) {

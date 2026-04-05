@@ -272,7 +272,7 @@ async function variationAlerts(entityId: string, period: string) {
   const currentData = await getCostSheetDataByProduct(entityId, period)
 
   // Also try production entries as fallback
-  let useProductionFallback = currentData.size === 0
+  const useProductionFallback = currentData.size === 0
   if (useProductionFallback) {
     const prodEntries = await prisma.productionEntry.findMany({
       where: { entityId, period },
@@ -304,7 +304,7 @@ async function variationAlerts(entityId: string, period: string) {
   const alerts: VariationAlert[] = []
 
   for (const comp of comparisons) {
-    let refData = await getCostSheetDataByProduct(entityId, comp.period)
+    const refData = await getCostSheetDataByProduct(entityId, comp.period)
 
     // Fallback to production entries
     if (refData.size === 0) {

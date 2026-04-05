@@ -18,7 +18,6 @@ function linearRegression(xs: number[], ys: number[]) {
   const sumY = ys.reduce((a, b) => a + b, 0)
   const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0)
   const sumX2 = xs.reduce((a, x) => a + x * x, 0)
-  const sumY2 = ys.reduce((a, y) => a + y * y, 0)
 
   const denom = n * sumX2 - sumX * sumX
   if (denom === 0) return { slope: 0, intercept: sumY / n, r2: 0 }

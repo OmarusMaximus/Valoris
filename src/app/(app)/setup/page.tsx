@@ -32,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Trash2,
   Loader2,
 } from "lucide-react"
 

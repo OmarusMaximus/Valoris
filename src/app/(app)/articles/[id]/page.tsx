@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn, formatCurrency, formatNumber, formatPercent, getPeriodLabel } from "@/lib/utils"
+import { cn, formatCurrency, formatNumber, getPeriodLabel } from "@/lib/utils"
 import {
   ArrowLeft,
   Package,
@@ -30,7 +30,6 @@ import {
 import {
   BarChart,
   Bar,
-  LineChart,
   Line,
   XAxis,
   YAxis,

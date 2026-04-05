@@ -17,7 +17,6 @@ import {
 import {
   Loader2,
   TrendingUp,
-  TrendingDown,
   Boxes,
   DollarSign,
   ChevronDown,
