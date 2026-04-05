@@ -60,15 +60,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { code, name, categoryId, entityId, unit, family, formulation, origin } = body
 
-    if (!code || !name || !categoryId || !entityId) {
+    if (!name || !categoryId || !entityId) {
       return NextResponse.json(
-        { error: 'code, name, categoryId, and entityId are required' },
+        { error: 'name, categoryId, and entityId are required' },
         { status: 400 }
       )
     }
 
     const product = await prisma.product.create({
-      data: { code, name, categoryId, entityId, unit, family, formulation, origin },
+      data: { code: code || null, name, categoryId, entityId, unit, family, formulation, origin },
       include: { category: true },
     })
 

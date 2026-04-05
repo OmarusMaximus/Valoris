@@ -363,12 +363,12 @@ export default function ProductsPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
+                <Label htmlFor="code">Code <span className="text-xs text-slate-400">(optionnel)</span></Label>
                 <Input
                   id="code"
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
-                  placeholder="PRD-001"
+                  placeholder="Optionnel"
                 />
               </div>
               <div className="space-y-2">
@@ -480,7 +480,7 @@ export default function ProductsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSave} disabled={saving || !form.code || !form.name}>
+            <Button onClick={handleSave} disabled={saving || !form.name}>
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}

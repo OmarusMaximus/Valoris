@@ -239,7 +239,7 @@ export default function SetupPage() {
   }
 
   const addProduct = async () => {
-    if (!prodForm.code || !prodForm.name || !prodForm.categoryId || !prodEntity) return
+    if (!prodForm.name || !prodForm.categoryId || !prodEntity) return
     try {
       const url = editingProdId ? `/api/products/${editingProdId}` : "/api/products"
       const r = await fetch(url, {
@@ -500,8 +500,8 @@ export default function SetupPage() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <Label>Code</Label>
-                  <Input placeholder="PF-XXX-01" value={prodForm.code} onChange={e => setProdForm({ ...prodForm, code: e.target.value })} />
+                  <Label>Code <span className="text-xs text-slate-400">(optionnel)</span></Label>
+                  <Input placeholder="Optionnel" value={prodForm.code} onChange={e => setProdForm({ ...prodForm, code: e.target.value })} />
                 </div>
                 <div>
                   <Label>Nom</Label>
