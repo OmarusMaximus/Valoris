@@ -60,15 +60,44 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { code, name, categoryId, entityId, unit, family, formulation, origin } = body
 
-    if (!name || !categoryId || !entityId) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'name, categoryId, and entityId are required' },
+        { error: 'name is required' },
         { status: 400 }
       )
     }
 
+    // If no categoryId, use the first available category
+    let finalCategoryId = categoryId
+    if (!finalCategoryId) {
+      const defaultCat = await prisma.productCategory.findFirst()
+      if (!defaultCat) {
+        return NextResponse.json({ error: 'No product category available. Create one first.' }, { status: 400 })
+      }
+      finalCategoryId = defaultCat.id
+    }
+
+    // If no entityId, use the first active entity
+    let finalEntityId = entityId
+    if (!finalEntityId) {
+      const defaultEntity = await prisma.entity.findFirst({ where: { active: true } })
+      if (!defaultEntity) {
+        return NextResponse.json({ error: 'No entity available. Create one first.' }, { status: 400 })
+      }
+      finalEntityId = defaultEntity.id
+    }
+
     const product = await prisma.product.create({
-      data: { code: code || null, name, categoryId, entityId, unit, family, formulation, origin },
+      data: {
+        code: code || null,
+        name,
+        categoryId: finalCategoryId,
+        entityId: finalEntityId,
+        unit: unit || 'KG',
+        family: family || null,
+        formulation: formulation || null,
+        origin: origin || null,
+      },
       include: { category: true },
     })
 

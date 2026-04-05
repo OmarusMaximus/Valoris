@@ -350,6 +350,7 @@ export default function ArticleDetailPage() {
         body: JSON.stringify({
           name: newProductForm.name,
           categoryId: newProductForm.categoryId || undefined,
+          entityId: article?.entity?.id || article?.product?.entity?.id || undefined,
           family: newProductForm.family || undefined,
           formulation: newProductForm.formulation || undefined,
           origin: newProductForm.origin || undefined,

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/utils"
-import { Package, Plus, Search, Loader2, Tag } from "lucide-react"
+import { Package, Plus, Search, Loader2, Tag, Pencil, Trash2 } from "lucide-react"
 
 type Article = {
   id: string
@@ -297,6 +297,36 @@ function ArticlesPageContent() {
                           {margin.toFixed(1)}%
                         </Badge>
                       )}
+                    </div>
+
+                    {/* Edit / Delete */}
+                    <div className="flex justify-end gap-1 pt-2 border-t border-slate-100">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/articles/${article.id}`)
+                        }}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Modifier
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (!confirm(`Supprimer l'article ${article.name} ?`)) return
+                          await fetch(`/api/articles/${article.id}`, { method: "DELETE" })
+                          fetchArticles()
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Supprimer
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
