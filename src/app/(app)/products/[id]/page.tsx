@@ -716,7 +716,7 @@ export default function ProductDetailPage() {
                       tickFormatter={(v) => formatCurrency(v)}
                     />
                     <Tooltip
-                      formatter={(v: number) => formatCurrency(v)}
+                      formatter={(v) => formatCurrency(Number(v))}
                     />
                     <Legend />
                     {articles.map((article, i) => (

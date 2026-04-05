@@ -245,7 +245,7 @@ export default function LeagueTablesPage() {
             <BarChart data={top10} layout="vertical" margin={{ left: 20 }}>
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v)} />
               <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {top10.map((_, i) => (
                   <Cell key={i} fill={TOP10_COLORS[i % TOP10_COLORS.length]} />

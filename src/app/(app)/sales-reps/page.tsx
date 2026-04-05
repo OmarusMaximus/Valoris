@@ -338,8 +338,8 @@ export default function SalesRepsPage() {
                                       />
                                       <YAxis tick={{ fontSize: 11 }} />
                                       <Tooltip
-                                        formatter={(v: number) =>
-                                          formatCurrency(v)
+                                        formatter={(v) =>
+                                          formatCurrency(Number(v))
                                         }
                                       />
                                       <Bar
