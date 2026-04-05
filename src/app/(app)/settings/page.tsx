@@ -36,7 +36,9 @@ import {
   Loader2,
   Settings,
   AlertTriangle,
+  ArrowRightLeft,
 } from "lucide-react"
+import Link from "next/link"
 
 // --- Types ---
 
@@ -368,6 +370,21 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Parametres</h1>
         <p className="text-slate-500">Configuration de l&apos;application</p>
+      </div>
+
+      {/* Quick links */}
+      <div className="flex gap-3">
+        <Link href="/settings/exchange-rates">
+          <Card className="hover:border-blue-300 transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 py-4 px-5">
+              <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-slate-900">Taux de change</p>
+                <p className="text-xs text-slate-500">Gerer les taux de conversion entre devises</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Tabs defaultValue="categories">

@@ -72,6 +72,7 @@ type TargetField =
   | 'customerCode' | 'customerName' | 'customerType'
   | 'salesRepCode' | 'salesRepName'
   | 'revenue' | 'quantity' | 'unitPrice' | 'variableCost'
+  | 'salesCurrency'
 
 // For fields that need BOTH a category keyword AND a specificity keyword,
 // we use a tuple of [categoryKeywords, specificityKeywords].
@@ -93,6 +94,7 @@ const KEYWORD_MAP: Record<TargetField, KeywordRule> = {
   quantity: ['quantité', 'quantite', 'qty', 'qte', 'quantity', 'volume'],
   unitPrice: ['prix', 'price', 'tarif', 'unit'],
   variableCost: ['coût', 'cout', 'cost', 'variable'],
+  salesCurrency: [['devise', 'currency', 'monnaie'], ['vente', 'sale', 'sales']],
 }
 
 /**
@@ -250,7 +252,7 @@ export async function POST(request: NextRequest) {
 
     // === SCAN MODE: detect unknowns ===
     if (mode === 'scan') {
-      const unknownArticles = new Map<string, { name: string; entityCode: string }>()
+      const unknownArticles = new Map<string, { name: string; entityCode: string; salesCurrency: string }>()
       const unknownCustomers = new Map<string, { name: string; type: string }>()
       const unknownSalesReps = new Map<string, string>()
 
@@ -258,6 +260,7 @@ export async function POST(request: NextRequest) {
         const entityCode = String(getMappedValue(row, mapping, 'entityCode') ?? '')
         const articleCode = String(getMappedValue(row, mapping, 'articleCode') ?? '')
         const articleName = String(getMappedValue(row, mapping, 'articleName') ?? articleCode)
+        const salesCurrencyVal = String(getMappedValue(row, mapping, 'salesCurrency') ?? '')
         const customerCode = getMappedValue(row, mapping, 'customerCode')
         const customerName = String(getMappedValue(row, mapping, 'customerName') ?? '')
         const customerTypeRaw = getMappedValue(row, mapping, 'customerType')
@@ -266,7 +269,7 @@ export async function POST(request: NextRequest) {
         const salesRepName = String(getMappedValue(row, mapping, 'salesRepName') ?? '')
 
         if (articleCode && !articleByCode.has(articleCode)) {
-          unknownArticles.set(articleCode, { name: articleName, entityCode })
+          unknownArticles.set(articleCode, { name: articleName, entityCode, salesCurrency: salesCurrencyVal })
         }
         if (customerCode && !customerByCode.has(String(customerCode))) {
           unknownCustomers.set(String(customerCode), { name: customerName || String(customerCode), type: customerType })
@@ -278,7 +281,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         totalRows: data.length,
-        unknownArticles: Array.from(unknownArticles.entries()).map(([code, info]) => ({ code, name: info.name, entityCode: info.entityCode })),
+        unknownArticles: Array.from(unknownArticles.entries()).map(([code, info]) => ({ code, name: info.name, entityCode: info.entityCode, salesCurrency: info.salesCurrency })),
         unknownCustomers: Array.from(unknownCustomers.entries()).map(([code, info]) => ({ code, name: info.name, type: info.type })),
         unknownSalesReps: Array.from(unknownSalesReps.entries()).map(([code, name]) => ({ code, name })),
         hasUnknowns: unknownArticles.size > 0 || unknownCustomers.size > 0 || unknownSalesReps.size > 0,
@@ -286,8 +289,22 @@ export async function POST(request: NextRequest) {
     }
 
     // === IMPORT MODE ===
+    // Create ImportBatch record
+    const batch = await prisma.importBatch.create({
+      data: {
+        entityId: entityId,
+        type: 'SALES',
+        fileName: file.name,
+        rowCount: data.length,
+        imported: 0,
+        skipped: 0,
+        status: 'COMPLETED',
+      },
+    })
+
     let imported = 0
     let skipped = 0
+    let duplicateCount = 0
     const errors: string[] = []
     const skippedArticles = new Map<string, number>() // code → count
     const skippedCustomers = new Map<string, number>()
@@ -314,6 +331,7 @@ export async function POST(request: NextRequest) {
         const quantityRaw = getMappedValue(row, mapping, 'quantity')
         const unitPriceRaw = getMappedValue(row, mapping, 'unitPrice')
         const variableCostRaw = getMappedValue(row, mapping, 'variableCost')
+        const salesCurrencyRaw = getMappedValue(row, mapping, 'salesCurrency')
 
         if (!period) { errors.push(`Ligne ${rowNum}: ni période ni date trouvée`); skipped++; continue }
         if (!articleCode) { errors.push(`Ligne ${rowNum}: code article manquant`); skipped++; continue }
@@ -332,6 +350,17 @@ export async function POST(request: NextRequest) {
             await prisma.article.updateMany({
               where: { id: articleId, entityId: null },
               data: { entityId: rowEntityId },
+            })
+          }
+        }
+
+        // Update salesCurrency on the article if mapped and not yet set
+        if (salesCurrencyRaw) {
+          const currencyStr = String(salesCurrencyRaw).trim().toUpperCase()
+          if (currencyStr) {
+            await prisma.article.updateMany({
+              where: { id: articleId, salesCurrency: null },
+              data: { salesCurrency: currencyStr },
             })
           }
         }
@@ -366,7 +395,8 @@ export async function POST(request: NextRequest) {
           errors.push(`Ligne ${rowNum}: valeurs numériques invalides`); skipped++; continue
         }
 
-        await prisma.articleSalesHistory.upsert({
+        // Duplicate detection: check if record already exists
+        const existing = await prisma.articleSalesHistory.findUnique({
           where: {
             articleId_period_customerId: {
               articleId,
@@ -374,8 +404,33 @@ export async function POST(request: NextRequest) {
               customerId: customerId ?? '',
             },
           },
-          update: { revenue, qtySold, avgPrice, variableCost, salesRepId },
-          create: { articleId, period, customerId, salesRepId, revenue, qtySold, avgPrice, variableCost },
+        })
+        const isDuplicate = !!existing
+
+        if (isDuplicate) {
+          duplicateCount++
+        }
+
+        const result = await prisma.articleSalesHistory.upsert({
+          where: {
+            articleId_period_customerId: {
+              articleId,
+              period,
+              customerId: customerId ?? '',
+            },
+          },
+          update: { revenue, qtySold, avgPrice, variableCost, salesRepId, batchId: batch.id },
+          create: { articleId, period, customerId, salesRepId, revenue, qtySold, avgPrice, variableCost, batchId: batch.id },
+        })
+
+        // Track in ImportedRecord
+        await prisma.importedRecord.create({
+          data: {
+            batchId: batch.id,
+            tableName: 'ArticleSalesHistory',
+            recordId: result.id,
+            action: isDuplicate ? 'UPDATED' : 'CREATED',
+          },
         })
 
         imported++
@@ -384,6 +439,12 @@ export async function POST(request: NextRequest) {
         skipped++
       }
     }
+
+    // Update batch with final counts
+    await prisma.importBatch.update({
+      where: { id: batch.id },
+      data: { imported, skipped },
+    })
 
     // Build grouped warnings for skipped items
     const warnings: string[] = []
@@ -397,7 +458,7 @@ export async function POST(request: NextRequest) {
       warnings.push(`Commercial '${code}' non trouvé — ${count} ligne${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''} sans commercial`)
     }
 
-    return NextResponse.json({ imported, skipped, warnings, errors: errors.slice(0, 50), total: data.length })
+    return NextResponse.json({ imported, skipped, duplicateCount, warnings, errors: errors.slice(0, 50), total: data.length, batchId: batch.id })
   } catch (error) {
     console.error('Sales import error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

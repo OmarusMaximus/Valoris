@@ -15,11 +15,13 @@ type AppState = {
   selectedPeriod: string
   sidebarOpen: boolean
   locale: string
+  displayCurrency: string | null
   setUser: (user: UserInfo | null) => void
   setSelectedEntity: (entityId: string | null) => void
   setSelectedPeriod: (period: string) => void
   toggleSidebar: () => void
   setLocale: (locale: string) => void
+  setDisplayCurrency: (currency: string | null) => void
 }
 
 const getCurrentPeriod = () => {
@@ -33,9 +35,11 @@ export const useAppStore = create<AppState>((set) => ({
   selectedPeriod: getCurrentPeriod(),
   sidebarOpen: true,
   locale: 'fr',
+  displayCurrency: null,
   setUser: (user) => set({ user }),
   setSelectedEntity: (entityId) => set({ selectedEntityId: entityId }),
   setSelectedPeriod: (period) => set({ selectedPeriod: period }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setLocale: (locale) => set({ locale }),
+  setDisplayCurrency: (currency) => set({ displayCurrency: currency }),
 }))

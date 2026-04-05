@@ -109,12 +109,13 @@ model Article {
   entityId        String?
   entity          Entity?  @relation(fields: [entityId], references: [id])
   photoUrl        String?
-  stockUnit       String   @default("UNIT")  // UNIT, KG, L, CARTON, PALETTE
-  salesUnit       String   @default("UNIT")  // UNIT, KG, L, CARTON, PALETTE
-  contentQty      Float    @default(1)       // qty of product per article (e.g. 5 for 5L)
-  contentUnit     String   @default("L")     // unit of content (L, KG, etc.)
-  catalogPrice    Float    @default(0)       // prix catalogue départ usine
-  standardCost    Float    @default(0)       // coût standard
+  salesCurrency   String?  // devise de vente (EUR, XOF, MAD...) - si null, utilise devise société
+  stockUnit       String   @default("UNIT")
+  salesUnit       String   @default("UNIT")
+  contentQty      Float    @default(1)
+  contentUnit     String   @default("L")
+  catalogPrice    Float    @default(0)
+  standardCost    Float    @default(0)
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -147,6 +148,7 @@ model ArticleSalesHistory {
   qtySold      Float    @default(0)
   avgPrice     Float    @default(0)
   variableCost Float    @default(0)
+  batchId      String?  // link to ImportBatch for rollback
 
   @@unique([articleId, period, customerId])
 }
@@ -443,4 +445,48 @@ model SystemSetting {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+// ============================================================
+// EXCHANGE RATES
+// ============================================================
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  fromCurrency String   // EUR, XOF, MAD, etc.
+  toCurrency   String   // EUR, XOF, MAD, etc.
+  rate         Float    // 1 fromCurrency = rate toCurrency
+  period       String   // YYYY-MM
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([fromCurrency, toCurrency, period])
+}
+
+// ============================================================
+// IMPORT BATCHES (tracking)
+// ============================================================
+
+model ImportBatch {
+  id          String   @id @default(cuid())
+  entityId    String?
+  type        String   // SALES, ACCOUNTING
+  fileName    String
+  rowCount    Int      @default(0)
+  imported    Int      @default(0)
+  skipped     Int      @default(0)
+  status      String   @default("COMPLETED") // COMPLETED, ROLLED_BACK
+  createdAt   DateTime @default(now())
+
+  importedRecords ImportedRecord[]
+}
+
+model ImportedRecord {
+  id           String      @id @default(cuid())
+  batchId      String
+  batch        ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  tableName    String      // ArticleSalesHistory, Article, Customer, SalesRep
+  recordId     String      // ID of the created/updated record
+  action       String      // CREATED, UPDATED
+  createdAt    DateTime    @default(now())
 }

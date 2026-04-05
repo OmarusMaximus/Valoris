@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 type EntityOption = { id: string; code: string; name: string }
 
 export function Header() {
-  const { selectedEntityId, setSelectedEntity, selectedPeriod, setSelectedPeriod } = useAppStore()
+  const { selectedEntityId, setSelectedEntity, selectedPeriod, setSelectedPeriod, displayCurrency, setDisplayCurrency } = useAppStore()
   const [entities, setEntities] = useState<EntityOption[]>([])
 
   useEffect(() => {
@@ -68,8 +68,25 @@ export function Header() {
         </Select>
       </div>
 
-      <div className="text-sm text-slate-500">
-        FP&A Costing Tool
+      <div className="flex items-center gap-3">
+        <Select
+          value={displayCurrency || "__local__"}
+          onValueChange={(v) => setDisplayCurrency(v === "__local__" ? null : v)}
+        >
+          <SelectTrigger className="w-[150px] h-8 text-xs">
+            <SelectValue placeholder="Devise" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__local__">Devise locale</SelectItem>
+            <SelectItem value="EUR">EUR</SelectItem>
+            <SelectItem value="CHF">CHF</SelectItem>
+            <SelectItem value="MAD">MAD</SelectItem>
+            <SelectItem value="XOF">XOF</SelectItem>
+            <SelectItem value="KES">KES</SelectItem>
+            <SelectItem value="USD">USD</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-slate-500">FP&A Costing Tool</span>
       </div>
     </header>
   )

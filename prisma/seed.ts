@@ -551,6 +551,46 @@ async function main() {
       create: { key: 'defaultCostingMethod', value: 'CUMP' },
     });
     console.log('  ✓ System settings configured');
+
+    // ============================================================
+    // 11. EXCHANGE RATES
+    // ============================================================
+    console.log('Creating exchange rates...');
+
+    const exchangeRatePeriods = ['2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03'];
+
+    // Base rates with slight monthly variations
+    const exchangeRateData: Array<{ from: string; to: string; rates: number[] }> = [
+      { from: 'EUR', to: 'XOF', rates: [655.957, 655.957, 655.957, 655.957, 655.957, 655.957] }, // Fixed peg
+      { from: 'EUR', to: 'MAD', rates: [10.82, 10.87, 10.90, 10.83, 10.79, 10.85] },
+      { from: 'EUR', to: 'CHF', rates: [0.94, 0.93, 0.95, 0.94, 0.93, 0.94] },
+      { from: 'EUR', to: 'KES', rates: [154.20, 155.80, 156.30, 155.00, 154.50, 155.50] },
+      { from: 'EUR', to: 'USD', rates: [1.06, 1.07, 1.09, 1.08, 1.07, 1.08] },
+    ];
+
+    let exchangeRateCount = 0;
+    for (const er of exchangeRateData) {
+      for (let i = 0; i < exchangeRatePeriods.length; i++) {
+        await tx.exchangeRate.upsert({
+          where: {
+            fromCurrency_toCurrency_period: {
+              fromCurrency: er.from,
+              toCurrency: er.to,
+              period: exchangeRatePeriods[i],
+            },
+          },
+          update: { rate: er.rates[i] },
+          create: {
+            fromCurrency: er.from,
+            toCurrency: er.to,
+            rate: er.rates[i],
+            period: exchangeRatePeriods[i],
+          },
+        });
+        exchangeRateCount++;
+      }
+    }
+    console.log(`  ✓ ${exchangeRateCount} exchange rates created`);
   });
 
   console.log('\n✅ Seed completed successfully!');
