@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import {
   Table,
   TableBody,
@@ -60,6 +61,7 @@ type Article = {
   salesUnit: string
   contentQty: number
   contentUnit: string
+  salesCurrency: string | null
   catalogPrice: number
   standardCost: number
   entityId: string | null
@@ -121,6 +123,47 @@ const ORIGIN_LABELS: Record<string, string> = {
   negoce: "Negoce",
 }
 
+const FAMILY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "AMEO", label: "AMEO" },
+  { value: "BIOSTIMULANT", label: "Biostimulant" },
+  { value: "BIOCONTROLE", label: "Biocontrole" },
+  { value: "CORRECTEUR_CARENCES", label: "Correcteur de carences" },
+  { value: "DIVERS", label: "Divers" },
+]
+
+const FORMULATION_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "POUDRE", label: "Poudre" },
+  { value: "GRANULE", label: "Granule" },
+  { value: "WP", label: "WP (Wettable Powder)" },
+  { value: "LIQUIDE", label: "Liquide" },
+  { value: "KIT", label: "Kit" },
+]
+
+const BASE_UNIT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "UNIT", label: "Unite (UNIT)" },
+  { value: "KG", label: "Kilogramme (KG)" },
+  { value: "L", label: "Litre (L)" },
+  { value: "T", label: "Tonne (T)" },
+  { value: "G", label: "Gramme (G)" },
+  { value: "ML", label: "Millilitre (ML)" },
+  { value: "CARTON", label: "Carton" },
+  { value: "PALETTE", label: "Palette" },
+  { value: "SEAU", label: "Seau" },
+  { value: "BIDON", label: "Bidon" },
+  { value: "FUT", label: "Fut" },
+]
+
+const SALES_UNIT_EXTRAS: Array<{ value: string; label: string }> = [
+  { value: "S25", label: "Sac 25kg (S25)" },
+  { value: "S50", label: "Sac 50kg (S50)" },
+  { value: "S500", label: "Sac 500kg (S500)" },
+  { value: "BB500", label: "Big Bag 500kg (BB500)" },
+  { value: "BB1000", label: "Big Bag 1000kg (BB1000)" },
+  { value: "BIDON5L", label: "Bidon 5L" },
+  { value: "BIDON10L", label: "Bidon 10L" },
+  { value: "BIDON20L", label: "Bidon 20L" },
+]
+
 export default function ArticleDetailPage() {
   const params = useParams()
   const articleId = params.id as string
@@ -144,6 +187,7 @@ export default function ArticleDetailPage() {
     formulation: "",
     origin: "",
   })
+  const [customUnits, setCustomUnits] = useState<string[]>([])
   const [editForm, setEditForm] = useState({
     stockUnit: "",
     salesUnit: "",
@@ -327,7 +371,7 @@ export default function ArticleDetailPage() {
   }
 
   const getArticleCurrency = () => {
-    return article?.entity?.currency || article?.product.entity?.currency || "EUR"
+    return article?.salesCurrency || article?.entity?.currency || article?.product.entity?.currency || "EUR"
   }
 
   const getSelectedEntityCurrency = () => {
@@ -554,11 +598,12 @@ export default function ArticleDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-                      Contenu
+                      Contenu par unite de vente
                     </p>
                     <p className="mt-1 text-sm font-medium text-slate-700">
                       {article.contentQty} {article.contentUnit}
                     </p>
+                    <p className="mt-0.5 text-xs text-slate-400">Ex: 1 sac de 50kg contient 50 KG de produit</p>
                   </div>
                   <div className="sm:col-span-2 rounded-lg bg-slate-50 p-4">
                     <div className="flex items-end justify-between">
@@ -600,22 +645,13 @@ export default function ArticleDetailPage() {
                   {/* Entity select */}
                   <div className="space-y-2">
                     <Label className="text-xs">Societe</Label>
-                    <Select
-                      value={editForm.entityId || "__none__"}
-                      onValueChange={(v) =>
-                        setEditForm({ ...editForm, entityId: v === "__none__" ? "" : v })
-                      }
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selectionner une societe" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Aucune —</SelectItem>
-                        {entities.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.code} - {e.name} ({e.currency})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={editForm.entityId}
+                      onValueChange={(v) => setEditForm({ ...editForm, entityId: v })}
+                      options={entities.map(e => ({ value: e.id, label: `${e.code} - ${e.name}`, sublabel: e.currency }))}
+                      placeholder="Rechercher une societe..."
+                      searchPlaceholder="Rechercher par code ou nom..."
+                    />
                     {editForm.entityId && (
                       <p className="text-xs text-slate-500">
                         Devise: {getSelectedEntityCurrency()}
@@ -625,33 +661,15 @@ export default function ArticleDetailPage() {
                   {/* Product select */}
                   <div className="space-y-2">
                     <Label className="text-xs">Produit</Label>
-                    <Select
+                    <SearchableSelect
                       value={editForm.productId}
-                      onValueChange={(v) =>
-                        setEditForm({ ...editForm, productId: v })
-                      }
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selectionner un produit" /></SelectTrigger>
-                      <SelectContent>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.code ? `${p.code} - ` : ""}{p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewProduct(!showNewProduct)}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                    >
-                      {showNewProduct ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <Plus className="h-3 w-3" />
-                      )}
-                      Creer un nouveau produit
-                    </button>
+                      onValueChange={(v) => setEditForm({ ...editForm, productId: v })}
+                      options={products.map(p => ({ value: p.id, label: p.name, sublabel: p.code || undefined }))}
+                      placeholder="Rechercher un produit..."
+                      searchPlaceholder="Rechercher par nom..."
+                      onAdd={() => setShowNewProduct(true)}
+                      addLabel="Creer un nouveau produit"
+                    />
                   </div>
                   {/* Inline new product form */}
                   {showNewProduct && (
@@ -690,30 +708,27 @@ export default function ArticleDetailPage() {
                           </Select>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Famille</Label>
-                          <Select
-                            value={newProductForm.family || "__none__"}
+                          <Label className="text-xs">Gamme (famille)</Label>
+                          <SearchableSelect
+                            value={newProductForm.family}
                             onValueChange={(v) =>
-                              setNewProductForm({ ...newProductForm, family: v === "__none__" ? "" : v })
+                              setNewProductForm({ ...newProductForm, family: v })
                             }
-                          >
-                            <SelectTrigger><SelectValue placeholder="Famille" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">— Aucune —</SelectItem>
-                              {Object.entries(FORMULATION_LABELS).map(([k, label]) => (
-                                <SelectItem key={k} value={k}>{label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            options={FAMILY_OPTIONS}
+                            placeholder="Selectionner une famille..."
+                            searchPlaceholder="Rechercher..."
+                          />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Formulation</Label>
-                          <Input
-                            placeholder="Formulation"
+                          <SearchableSelect
                             value={newProductForm.formulation}
-                            onChange={(e) =>
-                              setNewProductForm({ ...newProductForm, formulation: e.target.value })
+                            onValueChange={(v) =>
+                              setNewProductForm({ ...newProductForm, formulation: v })
                             }
+                            options={FORMULATION_OPTIONS}
+                            placeholder="Selectionner une formulation..."
+                            searchPlaceholder="Rechercher..."
                           />
                         </div>
                         <div className="space-y-1">
@@ -752,32 +767,44 @@ export default function ArticleDetailPage() {
                   )}
                   <div className="space-y-2">
                     <Label className="text-xs">Unite de stock</Label>
-                    <Select value={editForm.stockUnit} onValueChange={(v) => setEditForm({ ...editForm, stockUnit: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UNIT">Unité</SelectItem>
-                        <SelectItem value="KG">KG</SelectItem>
-                        <SelectItem value="L">Litre</SelectItem>
-                        <SelectItem value="CARTON">Carton</SelectItem>
-                        <SelectItem value="PALETTE">Palette</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={editForm.stockUnit}
+                      onValueChange={(v) => setEditForm({ ...editForm, stockUnit: v })}
+                      options={[...BASE_UNIT_OPTIONS, ...customUnits.map(u => ({ value: u, label: u }))]}
+                      placeholder="Selectionner une unite..."
+                      searchPlaceholder="Rechercher une unite..."
+                      onAdd={() => {
+                        const code = window.prompt("Code de la nouvelle unite (ex: SACHET, DOSE...)")
+                        if (code && code.trim()) {
+                          const trimmed = code.trim().toUpperCase()
+                          if (!customUnits.includes(trimmed)) setCustomUnits([...customUnits, trimmed])
+                          setEditForm(prev => ({ ...prev, stockUnit: trimmed }))
+                        }
+                      }}
+                      addLabel="Ajouter une unite personnalisee"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Unite de vente</Label>
-                    <Select value={editForm.salesUnit} onValueChange={(v) => setEditForm({ ...editForm, salesUnit: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UNIT">Unité</SelectItem>
-                        <SelectItem value="KG">KG</SelectItem>
-                        <SelectItem value="L">Litre</SelectItem>
-                        <SelectItem value="CARTON">Carton</SelectItem>
-                        <SelectItem value="PALETTE">Palette</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={editForm.salesUnit}
+                      onValueChange={(v) => setEditForm({ ...editForm, salesUnit: v })}
+                      options={[...BASE_UNIT_OPTIONS, ...SALES_UNIT_EXTRAS, ...customUnits.map(u => ({ value: u, label: u }))]}
+                      placeholder="Selectionner une unite..."
+                      searchPlaceholder="Rechercher une unite..."
+                      onAdd={() => {
+                        const code = window.prompt("Code de la nouvelle unite (ex: S25, BB600...)")
+                        if (code && code.trim()) {
+                          const trimmed = code.trim().toUpperCase()
+                          if (!customUnits.includes(trimmed)) setCustomUnits([...customUnits, trimmed])
+                          setEditForm(prev => ({ ...prev, salesUnit: trimmed }))
+                        }
+                      }}
+                      addLabel="Ajouter une unite personnalisee"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Contenu (quantite)</Label>
+                    <Label className="text-xs">Contenu par unite de vente (quantite)</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -789,16 +816,23 @@ export default function ArticleDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Unite contenu</Label>
-                    <Select value={editForm.contentUnit} onValueChange={(v) => setEditForm({ ...editForm, contentUnit: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="L">Litre</SelectItem>
-                        <SelectItem value="KG">KG</SelectItem>
-                        <SelectItem value="UNIT">Unité</SelectItem>
-                        <SelectItem value="ML">ML</SelectItem>
-                        <SelectItem value="G">Gramme</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={editForm.contentUnit}
+                      onValueChange={(v) => setEditForm({ ...editForm, contentUnit: v })}
+                      options={[...BASE_UNIT_OPTIONS, ...customUnits.map(u => ({ value: u, label: u }))]}
+                      placeholder="Selectionner une unite..."
+                      searchPlaceholder="Rechercher une unite..."
+                      onAdd={() => {
+                        const code = window.prompt("Code de la nouvelle unite (ex: SACHET, DOSE...)")
+                        if (code && code.trim()) {
+                          const trimmed = code.trim().toUpperCase()
+                          if (!customUnits.includes(trimmed)) setCustomUnits([...customUnits, trimmed])
+                          setEditForm(prev => ({ ...prev, contentUnit: trimmed }))
+                        }
+                      }}
+                      addLabel="Ajouter une unite personnalisee"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Quantite de produit contenue dans une unite de vente. Ex: un sac S50 contient 50 KG.</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Prix catalogue ({getSelectedEntityCurrency()})</Label>

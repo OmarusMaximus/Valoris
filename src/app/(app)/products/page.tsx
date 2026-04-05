@@ -15,13 +15,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import {
   Table,
   TableBody,
@@ -35,7 +29,7 @@ import Link from "next/link"
 
 type Product = {
   id: string
-  code: string
+  code: string | null
   name: string
   categoryId: string | null
   category?: { id: string; name: string } | null
@@ -168,7 +162,7 @@ export default function ProductsPage() {
     return products.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.code.toLowerCase().includes(q)
+        (p.code && p.code.toLowerCase().includes(q))
     )
   }, [products, search])
 
@@ -181,7 +175,7 @@ export default function ProductsPage() {
   const openEditDialog = (product: Product) => {
     setEditingProduct(product)
     setForm({
-      code: product.code,
+      code: product.code || "",
       name: product.name,
       categoryId: product.categoryId || "",
       entityId: product.entityId,
@@ -296,14 +290,16 @@ export default function ProductsPage() {
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-mono text-sm">
+                      {product.code || "—"}
+                    </TableCell>
+                    <TableCell className="font-medium">
                       <Link
                         href={`/products/${product.id}`}
                         className="text-blue-600 hover:underline"
                       >
-                        {product.code}
+                        {product.name}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.category?.name || "—"}</TableCell>
                     <TableCell>
                       {product.family ? (FAMILY_LABELS[product.family] || product.family) : "—"}
@@ -383,96 +379,91 @@ export default function ProductsPage() {
             </div>
             <div className="space-y-2">
               <Label>Catégorie</Label>
-              <Select
+              <SearchableSelect
                 value={form.categoryId}
                 onValueChange={(v) => setForm({ ...form, categoryId: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+                placeholder="Sélectionner une catégorie"
+                onAdd={() => {
+                  const name = window.prompt("Nom de la nouvelle catégorie :")
+                  if (name) {
+                    // Category creation would need an API call; for now just prompt
+                    window.alert("Veuillez créer la catégorie via les paramètres.")
+                  }
+                }}
+                addLabel="Ajouter une catégorie"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Unité</Label>
-                <Select
+                <SearchableSelect
                   value={form.unit}
                   onValueChange={(v) => setForm({ ...form, unit: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNIT_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={UNIT_OPTIONS}
+                  placeholder="Sélectionner une unité"
+                  onAdd={() => {
+                    const val = window.prompt("Code de la nouvelle unité (ex: T, ML) :")
+                    if (val) {
+                      UNIT_OPTIONS.push({ value: val.toUpperCase(), label: val.toUpperCase() })
+                      setForm((f) => ({ ...f, unit: val.toUpperCase() }))
+                    }
+                  }}
+                  addLabel="Ajouter une unité"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Famille</Label>
-                <Select
+                <SearchableSelect
                   value={form.family}
                   onValueChange={(v) => setForm({ ...form, family: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FAMILY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={FAMILY_OPTIONS}
+                  placeholder="Sélectionner"
+                  onAdd={() => {
+                    const val = window.prompt("Code de la nouvelle famille :")
+                    if (val) {
+                      FAMILY_OPTIONS.push({ value: val.toUpperCase(), label: val })
+                      setForm((f) => ({ ...f, family: val.toUpperCase() }))
+                    }
+                  }}
+                  addLabel="Ajouter une famille"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Formulation</Label>
-                <Select
+                <SearchableSelect
                   value={form.formulation}
                   onValueChange={(v) => setForm({ ...form, formulation: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FORMULATION_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={FORMULATION_OPTIONS}
+                  placeholder="Sélectionner"
+                  onAdd={() => {
+                    const val = window.prompt("Code de la nouvelle formulation :")
+                    if (val) {
+                      FORMULATION_OPTIONS.push({ value: val.toUpperCase(), label: val })
+                      setForm((f) => ({ ...f, formulation: val.toUpperCase() }))
+                    }
+                  }}
+                  addLabel="Ajouter une formulation"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Origine</Label>
-                <Select
+                <SearchableSelect
                   value={form.origin}
                   onValueChange={(v) => setForm({ ...form, origin: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORIGIN_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={ORIGIN_OPTIONS}
+                  placeholder="Sélectionner"
+                  onAdd={() => {
+                    const val = window.prompt("Code de la nouvelle origine :")
+                    if (val) {
+                      ORIGIN_OPTIONS.push({ value: val.toUpperCase(), label: val })
+                      setForm((f) => ({ ...f, origin: val.toUpperCase() }))
+                    }
+                  }}
+                  addLabel="Ajouter une origine"
+                />
               </div>
             </div>
           </div>
