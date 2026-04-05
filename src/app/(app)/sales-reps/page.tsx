@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,17 +29,8 @@ import {
   UserCheck,
   Search,
   Plus,
-  ChevronDown,
-  ChevronRight,
+  ExternalLink,
 } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts"
 
 type SalesRep = {
   id: string
@@ -48,10 +40,9 @@ type SalesRep = {
   region: string
   email: string
   totalRevenue: number
+  totalQty: number
   clientCount: number
-  topClients?: { name: string; revenue: number }[]
-  topArticles?: { name: string; revenue: number }[]
-  monthlyTrend?: { month: string; revenue: number }[]
+  articleCount: number
 }
 
 type FormData = {
@@ -71,12 +62,11 @@ const emptyForm: FormData = {
 }
 
 export default function SalesRepsPage() {
+  const router = useRouter()
   const { selectedEntityId } = useAppStore()
   const [reps, setReps] = useState<SalesRep[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -101,37 +91,6 @@ export default function SalesRepsPage() {
   useEffect(() => {
     fetchReps()
   }, [fetchReps])
-
-  const handleExpand = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null)
-      return
-    }
-    setExpandedId(id)
-    setDetailLoading(true)
-    try {
-      const res = await fetch(`/api/sales-reps/${id}`)
-      if (res.ok) {
-        const detail = await res.json()
-        setReps((prev) =>
-          prev.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  topClients: detail.topClients || [],
-                  topArticles: detail.topArticles || [],
-                  monthlyTrend: detail.monthlyTrend || [],
-                }
-              : r
-          )
-        )
-      }
-    } catch {
-      // silently handle
-    } finally {
-      setDetailLoading(false)
-    }
-  }
 
   const handleAdd = async () => {
     setSaving(true)
@@ -160,9 +119,11 @@ export default function SalesRepsPage() {
       r.firstName.toLowerCase().includes(q) ||
       r.lastName.toLowerCase().includes(q) ||
       r.code.toLowerCase().includes(q) ||
-      r.email.toLowerCase().includes(q)
+      (r.email || "").toLowerCase().includes(q)
     )
   })
+
+  const totalRevenue = filtered.reduce((s, r) => s + (r.totalRevenue || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -182,6 +143,30 @@ export default function SalesRepsPage() {
           <Plus className="mr-2 h-4 w-4" />
           Ajouter un commercial
         </Button>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Commerciaux</p>
+            <p className="text-2xl font-bold">{filtered.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">CA Total</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Clients couverts</p>
+            <p className="text-2xl font-bold">
+              {filtered.reduce((s, r) => s + (r.clientCount || 0), 0)}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search */}
@@ -215,152 +200,50 @@ export default function SalesRepsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
                   <TableHead>Code</TableHead>
                   <TableHead>Nom complet</TableHead>
                   <TableHead>Region</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="text-right">CA Total</TableHead>
+                  <TableHead className="text-right">Qte totale</TableHead>
                   <TableHead className="text-right">Clients</TableHead>
+                  <TableHead className="text-right">Articles</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((rep) => (
-                  <>
-                    <TableRow
-                      key={rep.id}
-                      className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => handleExpand(rep.id)}
-                    >
-                      <TableCell>
-                        {expandedId === rep.id ? (
-                          <ChevronDown className="h-4 w-4 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {rep.code}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {rep.firstName} {rep.lastName}
-                      </TableCell>
-                      <TableCell>{rep.region}</TableCell>
-                      <TableCell className="text-sm text-slate-500">
-                        {rep.email}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(rep.totalRevenue)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(rep.clientCount, 0)}
-                      </TableCell>
-                    </TableRow>
-                    {expandedId === rep.id && (
-                      <TableRow key={`${rep.id}-detail`}>
-                        <TableCell colSpan={7} className="bg-slate-50 p-4">
-                          {detailLoading ? (
-                            <div className="flex h-[100px] items-center justify-center">
-                              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                            </div>
-                          ) : (
-                            <div className="grid gap-6 lg:grid-cols-3">
-                              {/* Top Clients */}
-                              <div>
-                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  Top clients
-                                </h4>
-                                {rep.topClients && rep.topClients.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {rep.topClients.map((c, i) => (
-                                      <div
-                                        key={i}
-                                        className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
-                                      >
-                                        <span className="text-sm">
-                                          {c.name}
-                                        </span>
-                                        <span className="text-sm font-medium">
-                                          {formatCurrency(c.revenue)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-slate-400">
-                                    Aucune donnee
-                                  </p>
-                                )}
-                              </div>
-                              {/* Top Articles */}
-                              <div>
-                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  Top articles
-                                </h4>
-                                {rep.topArticles &&
-                                rep.topArticles.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {rep.topArticles.map((a, i) => (
-                                      <div
-                                        key={i}
-                                        className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
-                                      >
-                                        <span className="text-sm">
-                                          {a.name}
-                                        </span>
-                                        <span className="text-sm font-medium">
-                                          {formatCurrency(a.revenue)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-slate-400">
-                                    Aucune donnee
-                                  </p>
-                                )}
-                              </div>
-                              {/* Monthly Chart */}
-                              <div>
-                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  CA mensuel
-                                </h4>
-                                {rep.monthlyTrend &&
-                                rep.monthlyTrend.length > 0 ? (
-                                  <ResponsiveContainer
-                                    width="100%"
-                                    height={180}
-                                  >
-                                    <BarChart data={rep.monthlyTrend}>
-                                      <XAxis
-                                        dataKey="month"
-                                        tick={{ fontSize: 11 }}
-                                      />
-                                      <YAxis tick={{ fontSize: 11 }} />
-                                      <Tooltip
-                                        formatter={(v) =>
-                                          formatCurrency(Number(v))
-                                        }
-                                      />
-                                      <Bar
-                                        dataKey="revenue"
-                                        fill="#6366f1"
-                                        radius={[4, 4, 0, 0]}
-                                      />
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                ) : (
-                                  <p className="text-sm text-slate-400">
-                                    Aucune donnee
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
+                  <TableRow
+                    key={rep.id}
+                    className="cursor-pointer hover:bg-slate-50"
+                    onClick={() => router.push(`/sales-reps/${rep.id}`)}
+                  >
+                    <TableCell className="font-mono text-sm">
+                      {rep.code}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {rep.firstName} {rep.lastName}
+                    </TableCell>
+                    <TableCell>{rep.region || "-"}</TableCell>
+                    <TableCell className="text-sm text-slate-500">
+                      {rep.email || "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(rep.totalRevenue || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(rep.totalQty || 0, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {rep.clientCount || 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {rep.articleCount || 0}
+                    </TableCell>
+                    <TableCell>
+                      <ExternalLink className="h-4 w-4 text-slate-400" />
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
