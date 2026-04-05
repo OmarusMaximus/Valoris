@@ -3,13 +3,17 @@ import prisma from '@/lib/prisma'
 import { getCurrentUser, requireRole, ROLES } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 
-// Flexible column name mapping
 const COLUMN_MAPS = {
   period: ['Period', 'Période', 'Mois', 'period', 'période', 'mois', 'PERIOD', 'PERIODE', 'MOIS'],
   articleCode: ['Article Code', 'Code Article', 'article_code', 'code_article', 'ArticleCode', 'CodeArticle', 'ARTICLE_CODE', 'CODE_ARTICLE'],
+  articleName: ['Article Name', 'Nom Article', 'article_name', 'nom_article', 'ArticleName', 'NomArticle', 'ARTICLE_NAME', 'NOM_ARTICLE'],
+  productCode: ['Product Code', 'Code Produit', 'product_code', 'code_produit', 'ProductCode', 'CodeProduit', 'PRODUCT_CODE', 'CODE_PRODUIT'],
   customerCode: ['Customer Code', 'Code Client', 'customer_code', 'code_client', 'CustomerCode', 'CodeClient', 'CUSTOMER_CODE', 'CODE_CLIENT'],
+  customerName: ['Customer Name', 'Nom Client', 'customer_name', 'nom_client', 'CustomerName', 'NomClient', 'CUSTOMER_NAME', 'NOM_CLIENT'],
+  customerType: ['Customer Type', 'Type Client', 'customer_type', 'type_client', 'CUSTOMER_TYPE', 'TYPE_CLIENT'],
   salesRepCode: ['Sales Rep Code', 'Code Commercial', 'sales_rep_code', 'code_commercial', 'SalesRepCode', 'CodeCommercial', 'SALES_REP_CODE', 'CODE_COMMERCIAL'],
-  revenue: ['Revenue', 'CA', 'Chiffre d\'affaires', 'revenue', 'ca', 'chiffre_affaires', 'REVENUE', 'CHIFFRE_AFFAIRES'],
+  salesRepName: ['Sales Rep Name', 'Nom Commercial', 'sales_rep_name', 'nom_commercial', 'SalesRepName', 'NomCommercial', 'SALES_REP_NAME', 'NOM_COMMERCIAL'],
+  revenue: ['Revenue', 'CA', "Chiffre d'affaires", 'revenue', 'ca', 'chiffre_affaires', 'REVENUE', 'CHIFFRE_AFFAIRES'],
   quantity: ['Quantity', 'Quantité', 'Qté', 'quantity', 'quantité', 'qté', 'qty', 'QUANTITY', 'QUANTITE', 'QTE', 'QTY'],
   unitPrice: ['Unit Price', 'Prix unitaire', 'unit_price', 'prix_unitaire', 'UnitPrice', 'PrixUnitaire', 'UNIT_PRICE', 'PRIX_UNITAIRE'],
   variableCost: ['Variable Cost', 'Coût variable', 'variable_cost', 'cout_variable', 'VariableCost', 'CoutVariable', 'VARIABLE_COST', 'COUT_VARIABLE'],
@@ -24,13 +28,20 @@ function findColumnValue(row: Record<string, unknown>, candidates: string[]): un
   return undefined
 }
 
+function parseExcelData(buffer: Buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const sheetName = workbook.SheetNames[0]
+  const sheet = workbook.Sheets[sheetName]
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
+}
+
+// POST: scan (preview) or import
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-
     if (!requireRole(user.role, [ROLES.FPA_ANALYST, ROLES.FPA_DIRECTOR, ROLES.ADMIN])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -38,51 +49,71 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const entityId = formData.get('entityId') as string | null
+    const mode = formData.get('mode') as string | null // "scan" or "import"
 
-    if (!file) {
-      return NextResponse.json({ error: 'file is required' }, { status: 400 })
-    }
-    if (!entityId) {
-      return NextResponse.json({ error: 'entityId is required' }, { status: 400 })
-    }
+    if (!file) return NextResponse.json({ error: 'file is required' }, { status: 400 })
+    if (!entityId) return NextResponse.json({ error: 'entityId is required' }, { status: 400 })
 
-    // Parse Excel file
     const buffer = Buffer.from(await file.arrayBuffer())
-    const workbook = XLSX.read(buffer, { type: 'buffer' })
-    const sheetName = workbook.SheetNames[0]
-    const sheet = workbook.Sheets[sheetName]
-    const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
+    const data = parseExcelData(buffer)
 
     if (data.length === 0) {
       return NextResponse.json({ error: 'Excel file is empty' }, { status: 400 })
     }
 
-    // Pre-fetch lookup tables for the entity
-    const articles = await prisma.article.findMany({
-      where: { active: true },
-      select: { id: true, code: true },
-    })
+    // Fetch existing records
+    const articles = await prisma.article.findMany({ where: { active: true }, select: { id: true, code: true } })
     const articleByCode = new Map(articles.map((a) => [a.code, a.id]))
 
-    const customers = await prisma.customer.findMany({
-      where: { active: true },
-      select: { id: true, code: true },
-    })
+    const customers = await prisma.customer.findMany({ where: { active: true }, select: { id: true, code: true } })
     const customerByCode = new Map(customers.map((c) => [c.code, c.id]))
 
-    const salesReps = await prisma.salesRep.findMany({
-      where: { active: true },
-      select: { id: true, code: true },
-    })
+    const salesReps = await prisma.salesRep.findMany({ where: { active: true }, select: { id: true, code: true } })
     const salesRepByCode = new Map(salesReps.map((s) => [s.code, s.id]))
 
+    // === SCAN MODE: detect unknowns ===
+    if (mode === 'scan') {
+      const unknownArticles = new Map<string, string>()
+      const unknownCustomers = new Map<string, { name: string; type: string }>()
+      const unknownSalesReps = new Map<string, string>()
+
+      for (const row of data) {
+        const articleCode = String(findColumnValue(row, COLUMN_MAPS.articleCode) ?? '')
+        const articleName = String(findColumnValue(row, COLUMN_MAPS.articleName) ?? articleCode)
+        const customerCode = findColumnValue(row, COLUMN_MAPS.customerCode)
+        const customerName = String(findColumnValue(row, COLUMN_MAPS.customerName) ?? '')
+        const customerType = String(findColumnValue(row, COLUMN_MAPS.customerType) ?? 'DIRECT')
+        const salesRepCode = findColumnValue(row, COLUMN_MAPS.salesRepCode)
+        const salesRepName = String(findColumnValue(row, COLUMN_MAPS.salesRepName) ?? '')
+
+        if (articleCode && !articleByCode.has(articleCode)) {
+          unknownArticles.set(articleCode, articleName)
+        }
+        if (customerCode && !customerByCode.has(String(customerCode))) {
+          unknownCustomers.set(String(customerCode), { name: customerName || String(customerCode), type: customerType })
+        }
+        if (salesRepCode && !salesRepByCode.has(String(salesRepCode))) {
+          unknownSalesReps.set(String(salesRepCode), salesRepName || String(salesRepCode))
+        }
+      }
+
+      return NextResponse.json({
+        totalRows: data.length,
+        unknownArticles: Array.from(unknownArticles.entries()).map(([code, name]) => ({ code, name })),
+        unknownCustomers: Array.from(unknownCustomers.entries()).map(([code, info]) => ({ code, name: info.name, type: info.type })),
+        unknownSalesReps: Array.from(unknownSalesReps.entries()).map(([code, name]) => ({ code, name })),
+        hasUnknowns: unknownArticles.size > 0 || unknownCustomers.size > 0 || unknownSalesReps.size > 0,
+      })
+    }
+
+    // === IMPORT MODE ===
     let imported = 0
     let skipped = 0
     const errors: string[] = []
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i]
-      const rowNum = i + 2 // Excel row (1-indexed header + data)
+      const rowNum = i + 2
 
       try {
         const period = String(findColumnValue(row, COLUMN_MAPS.period) ?? '')
@@ -94,53 +125,31 @@ export async function POST(request: NextRequest) {
         const unitPriceRaw = findColumnValue(row, COLUMN_MAPS.unitPrice)
         const variableCostRaw = findColumnValue(row, COLUMN_MAPS.variableCost)
 
-        // Validate required fields
-        if (!period) {
-          errors.push(`Row ${rowNum}: missing period`)
-          skipped++
-          continue
-        }
-        if (!articleCode) {
-          errors.push(`Row ${rowNum}: missing article code`)
-          skipped++
-          continue
-        }
+        if (!period) { errors.push(`Ligne ${rowNum}: période manquante`); skipped++; continue }
+        if (!articleCode) { errors.push(`Ligne ${rowNum}: code article manquant`); skipped++; continue }
 
-        // Lookup article
         const articleId = articleByCode.get(articleCode)
-        if (!articleId) {
-          errors.push(`Row ${rowNum}: article '${articleCode}' not found`)
-          skipped++
-          continue
-        }
+        if (!articleId) { errors.push(`Ligne ${rowNum}: article '${articleCode}' non trouvé`); skipped++; continue }
 
-        // Lookup optional customer
         let customerId: string | null = null
         if (customerCode) {
-          const cid = customerByCode.get(String(customerCode))
-          if (!cid) {
-            errors.push(`Row ${rowNum}: customer '${customerCode}' not found, importing without customer`)
-          } else {
-            customerId = cid
+          customerId = customerByCode.get(String(customerCode)) ?? null
+          if (!customerId) {
+            errors.push(`Ligne ${rowNum}: client '${customerCode}' non trouvé, importé sans client`)
           }
         }
 
-        // Lookup optional sales rep
         let salesRepId: string | null = null
         if (salesRepCode) {
-          const sid = salesRepByCode.get(String(salesRepCode))
-          if (!sid) {
-            errors.push(`Row ${rowNum}: sales rep '${salesRepCode}' not found, importing without sales rep`)
-          } else {
-            salesRepId = sid
+          salesRepId = salesRepByCode.get(String(salesRepCode)) ?? null
+          if (!salesRepId) {
+            errors.push(`Ligne ${rowNum}: commercial '${salesRepCode}' non trouvé, importé sans commercial`)
           }
         }
 
         const revenue = parseFloat(String(revenueRaw ?? 0))
         const qtySold = parseFloat(String(quantityRaw ?? 0))
         const variableCost = parseFloat(String(variableCostRaw ?? 0))
-
-        // Calculate avgPrice: from explicit column, or derived from revenue/qty
         let avgPrice = 0
         if (unitPriceRaw !== undefined) {
           avgPrice = parseFloat(String(unitPriceRaw))
@@ -149,12 +158,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (isNaN(revenue) || isNaN(qtySold)) {
-          errors.push(`Row ${rowNum}: invalid numeric values`)
-          skipped++
-          continue
+          errors.push(`Ligne ${rowNum}: valeurs numériques invalides`); skipped++; continue
         }
 
-        // Upsert using the unique constraint [articleId, period, customerId]
         await prisma.articleSalesHistory.upsert({
           where: {
             articleId_period_customerId: {
@@ -163,43 +169,20 @@ export async function POST(request: NextRequest) {
               customerId: customerId ?? '',
             },
           },
-          update: {
-            revenue,
-            qtySold,
-            avgPrice,
-            variableCost,
-            salesRepId,
-          },
-          create: {
-            articleId,
-            period,
-            customerId,
-            salesRepId,
-            revenue,
-            qtySold,
-            avgPrice,
-            variableCost,
-          },
+          update: { revenue, qtySold, avgPrice, variableCost, salesRepId },
+          create: { articleId, period, customerId, salesRepId, revenue, qtySold, avgPrice, variableCost },
         })
 
         imported++
       } catch (rowError) {
-        errors.push(`Row ${rowNum}: ${rowError instanceof Error ? rowError.message : 'unknown error'}`)
+        errors.push(`Ligne ${rowNum}: ${rowError instanceof Error ? rowError.message : 'erreur inconnue'}`)
         skipped++
       }
     }
 
-    return NextResponse.json({
-      imported,
-      skipped,
-      errors: errors.slice(0, 50), // Cap error messages
-      total: data.length,
-    })
+    return NextResponse.json({ imported, skipped, errors: errors.slice(0, 50), total: data.length })
   } catch (error) {
     console.error('Sales import error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
