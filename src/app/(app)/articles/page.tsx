@@ -44,6 +44,8 @@ type Article = {
   contentUnit: string
   catalogPrice: number
   standardCost: number
+  salesCurrency?: string | null
+  entity?: { id: string; code: string; name: string; currency: string } | null
   product: {
     id: string
     name: string
@@ -298,8 +300,8 @@ function ArticlesPageContent() {
                   <TableCell className="font-medium">{article.name}</TableCell>
                   <TableCell className="text-sm text-slate-500">{article.product.name}</TableCell>
                   <TableCell className="text-sm">{article.contentQty} {article.contentUnit}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(article.catalogPrice)}</TableCell>
-                  <TableCell className="text-right text-slate-500">{formatCurrency(article.standardCost)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(article.catalogPrice, article.salesCurrency || article.entity?.currency || 'EUR')}</TableCell>
+                  <TableCell className="text-right text-slate-500">{formatCurrency(article.standardCost, article.salesCurrency || article.entity?.currency || 'EUR')}</TableCell>
                   <TableCell className="text-right">
                     {margin !== null && <Badge variant={margin >= 0 ? "success" : "destructive"} className="text-xs">{margin >= 0 ? "+" : ""}{margin.toFixed(1)}%</Badge>}
                   </TableCell>
@@ -370,10 +372,10 @@ function ArticlesPageContent() {
                     <div className="flex items-end justify-between pt-1">
                       <div>
                         <p className="text-lg font-bold text-slate-900">
-                          {formatCurrency(article.catalogPrice)}
+                          {formatCurrency(article.catalogPrice, article.salesCurrency || article.entity?.currency || 'EUR')}
                         </p>
                         <p className="text-xs text-slate-500">
-                          Cout: {formatCurrency(article.standardCost)}
+                          Cout: {formatCurrency(article.standardCost, article.salesCurrency || article.entity?.currency || 'EUR')}
                         </p>
                       </div>
                       {margin !== null && (

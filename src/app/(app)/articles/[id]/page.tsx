@@ -1000,7 +1000,61 @@ export default function ArticleDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Card 4: Sales History Table */}
+          {/* Card 4: Volume Evolution */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Evolution des volumes</CardTitle>
+                {salesHistory.length > 0 && (
+                  <span className="text-sm font-medium text-slate-500">
+                    Total: {formatNumber(salesHistory.reduce((sum, e) => sum + e.qtySold, 0))} {article.salesUnit}
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {salesHistory.length === 0 ? (
+                <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+                  Aucune donnee de vente disponible
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart
+                    data={salesHistory}
+                    margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="period"
+                      tickFormatter={getShortPeriodLabel}
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      tickFormatter={(v) => formatNumber(Number(v))}
+                    />
+                    <Tooltip
+                      formatter={(value) => [formatNumber(Number(value)), "Quantite vendue"]}
+                      labelFormatter={(label) => getPeriodLabel(String(label))}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                        fontSize: "13px",
+                      }}
+                    />
+                    <Bar
+                      dataKey="qtySold"
+                      fill="#14b8a6"
+                      radius={[4, 4, 0, 0]}
+                      name="Quantite vendue"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 5: Sales History Table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Historique des ventes</CardTitle>

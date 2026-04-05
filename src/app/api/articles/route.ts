@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const articles = await prisma.article.findMany({
       where,
-      include: { product: true },
+      include: { product: true, entity: true },
       orderBy: { name: 'asc' },
     })
 

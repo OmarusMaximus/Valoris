@@ -58,9 +58,11 @@ export async function POST(
 
     return NextResponse.json({ photoUrl })
   } catch (error) {
-    console.error('Upload article photo error:', error)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('Upload article photo error:', errMsg, error)
+    const isWriteError = errMsg.includes('EACCES') || errMsg.includes('EPERM') || errMsg.includes('ENOENT')
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: isWriteError ? `File write failed: ${errMsg}. Check server write permissions on the uploads directory.` : 'Internal server error' },
       { status: 500 }
     )
   }
