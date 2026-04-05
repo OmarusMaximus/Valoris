@@ -23,7 +23,15 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/utils"
-import { Package, Plus, Search, Loader2, Tag, Pencil, Trash2 } from "lucide-react"
+import { Package, Plus, Search, Loader2, Tag, Pencil, Trash2, LayoutGrid, List } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 type Article = {
   id: string
@@ -74,6 +82,8 @@ function ArticlesPageContent() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [productFilter, setProductFilter] = useState(initialProductId)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -214,9 +224,31 @@ function ArticlesPageContent() {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex gap-1">
+          <Button variant={viewMode === "grid" ? "default" : "outline"} size="icon" className="h-10 w-10" onClick={() => setViewMode("grid")}><LayoutGrid className="h-4 w-4" /></Button>
+          <Button variant={viewMode === "list" ? "default" : "outline"} size="icon" className="h-10 w-10" onClick={() => setViewMode("list")}><List className="h-4 w-4" /></Button>
+        </div>
       </div>
 
-      {/* Articles Grid */}
+      {/* Bulk actions bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
+          <span className="text-sm font-medium text-blue-800">{selectedIds.size} article(s) selectionne(s)</span>
+          <Button variant="destructive" size="sm" onClick={async () => {
+            if (!confirm(`Supprimer ${selectedIds.size} article(s) ?`)) return
+            for (const id of Array.from(selectedIds)) {
+              await fetch(`/api/articles/${id}`, { method: "DELETE" })
+            }
+            setSelectedIds(new Set())
+            fetchArticles()
+          }}>
+            <Trash2 className="h-3 w-3 mr-1" /> Supprimer
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Deselectionner</Button>
+        </div>
+      )}
+
+      {/* Articles */}
       {loading ? (
         <div className="flex h-[40vh] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -231,7 +263,63 @@ function ArticlesPageContent() {
               : "Commencez par ajouter un article."}
           </p>
         </div>
+      ) : viewMode === "list" ? (
+        /* TABLE VIEW */
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <input type="checkbox" className="rounded" checked={selectedIds.size === filteredArticles.length && filteredArticles.length > 0}
+                  onChange={() => {
+                    if (selectedIds.size === filteredArticles.length) { setSelectedIds(new Set()) }
+                    else { setSelectedIds(new Set(filteredArticles.map(a => a.id))) }
+                  }} />
+              </TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Nom</TableHead>
+              <TableHead>Produit</TableHead>
+              <TableHead>Contenu</TableHead>
+              <TableHead className="text-right">Prix catalogue</TableHead>
+              <TableHead className="text-right">Cout standard</TableHead>
+              <TableHead className="text-right">Marge %</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredArticles.map((article) => {
+              const margin = getMargin(article)
+              return (
+                <TableRow key={article.id} className="cursor-pointer" onClick={() => router.push(`/articles/${article.id}`)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" className="rounded" checked={selectedIds.has(article.id)}
+                      onChange={() => { setSelectedIds(prev => { const n = new Set(prev); if (n.has(article.id)) { n.delete(article.id) } else { n.add(article.id) } return n }) }} />
+                  </TableCell>
+                  <TableCell><Badge variant="outline" className="font-mono text-xs">{article.code}</Badge></TableCell>
+                  <TableCell className="font-medium">{article.name}</TableCell>
+                  <TableCell className="text-sm text-slate-500">{article.product.name}</TableCell>
+                  <TableCell className="text-sm">{article.contentQty} {article.contentUnit}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(article.catalogPrice)}</TableCell>
+                  <TableCell className="text-right text-slate-500">{formatCurrency(article.standardCost)}</TableCell>
+                  <TableCell className="text-right">
+                    {margin !== null && <Badge variant={margin >= 0 ? "success" : "destructive"} className="text-xs">{margin >= 0 ? "+" : ""}{margin.toFixed(1)}%</Badge>}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/articles/${article.id}`)}><Pencil className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700" onClick={async () => {
+                        if (!confirm(`Supprimer ${article.name} ?`)) return
+                        await fetch(`/api/articles/${article.id}`, { method: "DELETE" })
+                        fetchArticles()
+                      }}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       ) : (
+        /* GRID VIEW */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredArticles.map((article) => {
             const margin = getMargin(article)
