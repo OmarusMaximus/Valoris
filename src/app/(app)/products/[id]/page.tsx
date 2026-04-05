@@ -36,8 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn, formatNumber, formatPercent, formatCurrency } from "@/lib/utils"
-import { useAppStore } from "@/store/app-store"
+import { cn, formatNumber, formatPercent } from "@/lib/utils"
 import { useCurrency } from "@/lib/use-currency"
 import {
   ArrowLeft,

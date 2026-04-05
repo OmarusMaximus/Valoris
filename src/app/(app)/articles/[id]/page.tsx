@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn, formatCurrency, formatNumber, getPeriodLabel } from "@/lib/utils"
+import { cn, formatNumber, getPeriodLabel } from "@/lib/utils"
 import { useCurrency } from "@/lib/use-currency"
 import {
   ArrowLeft,
