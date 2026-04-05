@@ -16,10 +16,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { entityId, articles, customers, salesReps } = body as {
       entityId: string
-      articles: Array<{ code: string; name: string; productId?: string }>
+      articles: Array<{ code: string; name: string; productId?: string; entityCode?: string }>
       customers: Array<{ code: string; name: string; type?: string }>
       salesReps: Array<{ code: string; name: string }>
     }
+
+    // Resolve entity codes to IDs
+    const allEntities = await prisma.entity.findMany({ select: { id: true, code: true } })
+    const entityMap = new Map(allEntities.map(e => [e.code, e.id]))
 
     const created = { articles: 0, customers: 0, salesReps: 0 }
 
@@ -55,6 +59,7 @@ export async function POST(request: NextRequest) {
                 code: art.code,
                 name: art.name || art.code,
                 productId: art.productId || defaultProduct.id,
+                entityId: (art.entityCode ? entityMap.get(art.entityCode) : null) || entityId,
                 stockUnit: 'UNIT',
                 salesUnit: 'UNIT',
                 contentQty: 1,

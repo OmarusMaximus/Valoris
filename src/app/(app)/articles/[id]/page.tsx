@@ -33,6 +33,9 @@ import {
   Pencil,
   Check,
   X,
+  Plus,
+  ChevronUp,
+  Building2,
 } from "lucide-react"
 import {
   BarChart,
@@ -59,6 +62,8 @@ type Article = {
   contentUnit: string
   catalogPrice: number
   standardCost: number
+  entityId: string | null
+  entity: { id: string; code: string; name: string; currency: string } | null
   product: {
     id: string
     name: string
@@ -68,6 +73,24 @@ type Article = {
     origin?: string
     entity?: { id: string; currency: string }
   }
+}
+
+type EntityOption = {
+  id: string
+  code: string
+  name: string
+  currency: string
+}
+
+type ProductOption = {
+  id: string
+  name: string
+  code: string
+}
+
+type CategoryOption = {
+  id: string
+  name: string
 }
 
 type SalesHistoryEntry = {
@@ -109,6 +132,18 @@ export default function ArticleDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [entities, setEntities] = useState<EntityOption[]>([])
+  const [products, setProducts] = useState<ProductOption[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [showNewProduct, setShowNewProduct] = useState(false)
+  const [creatingProduct, setCreatingProduct] = useState(false)
+  const [newProductForm, setNewProductForm] = useState({
+    name: "",
+    categoryId: "",
+    family: "",
+    formulation: "",
+    origin: "",
+  })
   const [editForm, setEditForm] = useState({
     stockUnit: "",
     salesUnit: "",
@@ -116,6 +151,8 @@ export default function ArticleDetailPage() {
     contentUnit: "",
     catalogPrice: "",
     standardCost: "",
+    productId: "",
+    entityId: "",
   })
 
   const fetchArticle = useCallback(async () => {
@@ -129,6 +166,42 @@ export default function ArticleDetailPage() {
       // silently handle
     }
   }, [articleId])
+
+  const fetchEntities = useCallback(async () => {
+    try {
+      const res = await fetch("/api/entities")
+      if (res.ok) {
+        const data = await res.json()
+        setEntities(Array.isArray(data) ? data : data.entities || [])
+      }
+    } catch {
+      // silently handle
+    }
+  }, [])
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/products")
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(Array.isArray(data) ? data : data.products || [])
+      }
+    } catch {
+      // silently handle
+    }
+  }, [])
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/products/categories")
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(Array.isArray(data) ? data : data.categories || [])
+      }
+    } catch {
+      // silently handle
+    }
+  }, [])
 
   const fetchSalesHistory = useCallback(async () => {
     try {
@@ -181,7 +254,14 @@ export default function ArticleDetailPage() {
       contentUnit: article.contentUnit,
       catalogPrice: String(article.catalogPrice),
       standardCost: String(article.standardCost),
+      productId: article.product.id,
+      entityId: article.entityId || "",
     })
+    setShowNewProduct(false)
+    setNewProductForm({ name: "", categoryId: "", family: "", formulation: "", origin: "" })
+    fetchEntities()
+    fetchProducts()
+    fetchCategories()
     setEditing(true)
   }
 
@@ -202,6 +282,8 @@ export default function ArticleDetailPage() {
           contentUnit: editForm.contentUnit,
           catalogPrice: parseFloat(editForm.catalogPrice) || 0,
           standardCost: parseFloat(editForm.standardCost) || 0,
+          productId: editForm.productId || undefined,
+          entityId: editForm.entityId || null,
         }),
       })
       if (res.ok) {
@@ -213,6 +295,47 @@ export default function ArticleDetailPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCreateProduct = async () => {
+    if (!newProductForm.name.trim()) return
+    setCreatingProduct(true)
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newProductForm.name,
+          categoryId: newProductForm.categoryId || undefined,
+          family: newProductForm.family || undefined,
+          formulation: newProductForm.formulation || undefined,
+          origin: newProductForm.origin || undefined,
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        await fetchProducts()
+        setEditForm((prev) => ({ ...prev, productId: created.id }))
+        setShowNewProduct(false)
+        setNewProductForm({ name: "", categoryId: "", family: "", formulation: "", origin: "" })
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setCreatingProduct(false)
+    }
+  }
+
+  const getArticleCurrency = () => {
+    return article?.entity?.currency || article?.product.entity?.currency || "EUR"
+  }
+
+  const getSelectedEntityCurrency = () => {
+    if (editForm.entityId) {
+      const ent = entities.find((e) => e.id === editForm.entityId)
+      if (ent) return ent.currency
+    }
+    return getArticleCurrency()
   }
 
   const getMargin = () => {
@@ -385,6 +508,36 @@ export default function ArticleDetailPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                      Societe
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-700 flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                      {article.entity
+                        ? `${article.entity.code} - ${article.entity.name}`
+                        : "—"}
+                      {article.entity && (
+                        <Badge variant="outline" className="text-xs ml-1">
+                          {article.entity.currency}
+                        </Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                      Produit
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      <Link
+                        href={`/products/${article.product.id}`}
+                        className="text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        {article.product.name}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                       Unite de stock
                     </p>
                     <p className="mt-1 text-sm font-medium text-slate-700">
@@ -414,7 +567,7 @@ export default function ArticleDetailPage() {
                           Prix catalogue (depart usine)
                         </p>
                         <p className="mt-1 text-2xl font-bold text-slate-900">
-                          {formatCurrency(article.catalogPrice)}
+                          {formatCurrency(article.catalogPrice, getArticleCurrency())}
                         </p>
                       </div>
                       <div className="text-right">
@@ -422,7 +575,7 @@ export default function ArticleDetailPage() {
                           Cout standard
                         </p>
                         <p className="mt-1 text-sm font-medium text-slate-600">
-                          {formatCurrency(article.standardCost)}
+                          {formatCurrency(article.standardCost, getArticleCurrency())}
                         </p>
                       </div>
                     </div>
@@ -444,6 +597,159 @@ export default function ArticleDetailPage() {
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Entity select */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Societe</Label>
+                    <Select
+                      value={editForm.entityId || "__none__"}
+                      onValueChange={(v) =>
+                        setEditForm({ ...editForm, entityId: v === "__none__" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selectionner une societe" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Aucune —</SelectItem>
+                        {entities.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.code} - {e.name} ({e.currency})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editForm.entityId && (
+                      <p className="text-xs text-slate-500">
+                        Devise: {getSelectedEntityCurrency()}
+                      </p>
+                    )}
+                  </div>
+                  {/* Product select */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Produit</Label>
+                    <Select
+                      value={editForm.productId}
+                      onValueChange={(v) =>
+                        setEditForm({ ...editForm, productId: v })
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selectionner un produit" /></SelectTrigger>
+                      <SelectContent>
+                        {products.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.code ? `${p.code} - ` : ""}{p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewProduct(!showNewProduct)}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      {showNewProduct ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
+                      Creer un nouveau produit
+                    </button>
+                  </div>
+                  {/* Inline new product form */}
+                  {showNewProduct && (
+                    <div className="sm:col-span-2 rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-3">
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                        Nouveau produit
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nom *</Label>
+                          <Input
+                            placeholder="Nom du produit"
+                            value={newProductForm.name}
+                            onChange={(e) =>
+                              setNewProductForm({ ...newProductForm, name: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Categorie</Label>
+                          <Select
+                            value={newProductForm.categoryId || "__none__"}
+                            onValueChange={(v) =>
+                              setNewProductForm({ ...newProductForm, categoryId: v === "__none__" ? "" : v })
+                            }
+                          >
+                            <SelectTrigger><SelectValue placeholder="Categorie" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— Aucune —</SelectItem>
+                              {categories.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Famille</Label>
+                          <Select
+                            value={newProductForm.family || "__none__"}
+                            onValueChange={(v) =>
+                              setNewProductForm({ ...newProductForm, family: v === "__none__" ? "" : v })
+                            }
+                          >
+                            <SelectTrigger><SelectValue placeholder="Famille" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— Aucune —</SelectItem>
+                              {Object.entries(FORMULATION_LABELS).map(([k, label]) => (
+                                <SelectItem key={k} value={k}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Formulation</Label>
+                          <Input
+                            placeholder="Formulation"
+                            value={newProductForm.formulation}
+                            onChange={(e) =>
+                              setNewProductForm({ ...newProductForm, formulation: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Origine</Label>
+                          <Select
+                            value={newProductForm.origin || "__none__"}
+                            onValueChange={(v) =>
+                              setNewProductForm({ ...newProductForm, origin: v === "__none__" ? "" : v })
+                            }
+                          >
+                            <SelectTrigger><SelectValue placeholder="Origine" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— Aucune —</SelectItem>
+                              {Object.entries(ORIGIN_LABELS).map(([k, label]) => (
+                                <SelectItem key={k} value={k}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          onClick={handleCreateProduct}
+                          disabled={creatingProduct || !newProductForm.name.trim()}
+                        >
+                          {creatingProduct ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="mr-1 h-4 w-4" />
+                          )}
+                          Creer et selectionner
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="text-xs">Unite de stock</Label>
                     <Select value={editForm.stockUnit} onValueChange={(v) => setEditForm({ ...editForm, stockUnit: v })}>
@@ -495,7 +801,7 @@ export default function ArticleDetailPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Prix catalogue</Label>
+                    <Label className="text-xs">Prix catalogue ({getSelectedEntityCurrency()})</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -506,7 +812,7 @@ export default function ArticleDetailPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Cout standard</Label>
+                    <Label className="text-xs">Cout standard ({getSelectedEntityCurrency()})</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -528,7 +834,7 @@ export default function ArticleDetailPage() {
                 <CardTitle className="text-base">Evolution du CA</CardTitle>
                 {salesHistory.length > 0 && (
                   <span className="text-sm font-medium text-slate-500">
-                    Total: {formatCurrency(totalRevenue)}
+                    Total: {formatCurrency(totalRevenue, getArticleCurrency())}
                   </span>
                 )}
               </div>
@@ -555,7 +861,7 @@ export default function ArticleDetailPage() {
                       tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
-                      formatter={(value) => [formatCurrency(Number(value)), "CA"]}
+                      formatter={(value) => [formatCurrency(Number(value), getArticleCurrency()), "CA"]}
                       labelFormatter={(label) => getPeriodLabel(String(label))}
                       contentStyle={{
                         borderRadius: "8px",
@@ -605,7 +911,7 @@ export default function ArticleDetailPage() {
                     />
                     <Tooltip
                       formatter={(value, name) => [
-                        formatCurrency(Number(value)),
+                        formatCurrency(Number(value), getArticleCurrency()),
                         String(name) === "avgPrice"
                           ? "Prix moyen de vente"
                           : "Cout variable unitaire",
@@ -696,13 +1002,13 @@ export default function ArticleDetailPage() {
                               {formatNumber(entry.qtySold)}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.revenue)}
+                              {formatCurrency(entry.revenue, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.avgPrice)}
+                              {formatCurrency(entry.avgPrice, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.variableCost)}
+                              {formatCurrency(entry.variableCost, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right">
                               <span
@@ -713,7 +1019,7 @@ export default function ArticleDetailPage() {
                                     : "text-red-600"
                                 )}
                               >
-                                {formatCurrency(entryMargin)}{" "}
+                                {formatCurrency(entryMargin, getArticleCurrency())}{" "}
                                 <span className="text-xs">
                                   ({marginPercent >= 0 ? "+" : ""}
                                   {marginPercent.toFixed(1)}%)

@@ -20,6 +20,7 @@ export async function GET(
         product: {
           include: { category: true, entity: true },
         },
+        entity: true,
         salesHistory: {
           orderBy: { period: 'desc' },
         },

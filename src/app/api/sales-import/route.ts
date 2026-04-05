@@ -68,7 +68,7 @@ function parseExcelData(buffer: Buffer) {
 // ---- Fuzzy auto-suggest logic ----
 
 type TargetField =
-  | 'date' | 'period' | 'articleCode' | 'articleName'
+  | 'date' | 'period' | 'entityCode' | 'articleCode' | 'articleName'
   | 'customerCode' | 'customerName' | 'customerType'
   | 'salesRepCode' | 'salesRepName'
   | 'revenue' | 'quantity' | 'unitPrice' | 'variableCost'
@@ -81,6 +81,7 @@ type KeywordRule = string[] | [string[], string[]]
 const KEYWORD_MAP: Record<TargetField, KeywordRule> = {
   date: ['date', 'calendrier', 'jour', 'day'],
   period: ['period', 'période', 'periode', 'mois', 'month'],
+  entityCode: [['société', 'societe', 'entity', 'site', 'filiale', 'company'], ['code', 'id', 'ref']],
   articleCode: [['article', 'produit', 'product', 'art', 'sku'], ['code', 'ref', 'référence', 'reference']],
   articleName: [['article', 'produit', 'product'], ['nom', 'name', 'désignation', 'designation', 'libellé', 'libelle', 'label']],
   customerCode: [['client', 'customer', 'cust'], ['code', 'ref', 'id', 'num']],
@@ -235,6 +236,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch existing records
+    const entities = await prisma.entity.findMany({ where: { active: true }, select: { id: true, code: true } })
+    const entityByCode = new Map(entities.map((e) => [e.code, e.id]))
+
     const articles = await prisma.article.findMany({ where: { active: true }, select: { id: true, code: true } })
     const articleByCode = new Map(articles.map((a) => [a.code, a.id]))
 
@@ -246,11 +250,12 @@ export async function POST(request: NextRequest) {
 
     // === SCAN MODE: detect unknowns ===
     if (mode === 'scan') {
-      const unknownArticles = new Map<string, string>()
+      const unknownArticles = new Map<string, { name: string; entityCode: string }>()
       const unknownCustomers = new Map<string, { name: string; type: string }>()
       const unknownSalesReps = new Map<string, string>()
 
       for (const row of data) {
+        const entityCode = String(getMappedValue(row, mapping, 'entityCode') ?? '')
         const articleCode = String(getMappedValue(row, mapping, 'articleCode') ?? '')
         const articleName = String(getMappedValue(row, mapping, 'articleName') ?? articleCode)
         const customerCode = getMappedValue(row, mapping, 'customerCode')
@@ -261,7 +266,7 @@ export async function POST(request: NextRequest) {
         const salesRepName = String(getMappedValue(row, mapping, 'salesRepName') ?? '')
 
         if (articleCode && !articleByCode.has(articleCode)) {
-          unknownArticles.set(articleCode, articleName)
+          unknownArticles.set(articleCode, { name: articleName, entityCode })
         }
         if (customerCode && !customerByCode.has(String(customerCode))) {
           unknownCustomers.set(String(customerCode), { name: customerName || String(customerCode), type: customerType })
@@ -273,7 +278,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         totalRows: data.length,
-        unknownArticles: Array.from(unknownArticles.entries()).map(([code, name]) => ({ code, name })),
+        unknownArticles: Array.from(unknownArticles.entries()).map(([code, info]) => ({ code, name: info.name, entityCode: info.entityCode })),
         unknownCustomers: Array.from(unknownCustomers.entries()).map(([code, info]) => ({ code, name: info.name, type: info.type })),
         unknownSalesReps: Array.from(unknownSalesReps.entries()).map(([code, name]) => ({ code, name })),
         hasUnknowns: unknownArticles.size > 0 || unknownCustomers.size > 0 || unknownSalesReps.size > 0,

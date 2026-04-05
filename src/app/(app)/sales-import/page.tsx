@@ -73,6 +73,7 @@ type ImportStep = 1 | 2 | 3 | 4
 type TargetField =
   | "date"
   | "period"
+  | "entityCode"
   | "articleCode"
   | "articleName"
   | "customerCode"
@@ -92,6 +93,7 @@ const TARGET_FIELDS: Array<{
 }> = [
   { key: "date", label: "Date", required: true },
   { key: "period", label: "Periode (YYYY-MM)", required: true },
+  { key: "entityCode", label: "Code societe", required: false },
   { key: "articleCode", label: "Code article", required: true },
   { key: "articleName", label: "Nom article", required: false },
   { key: "customerCode", label: "Code client", required: false },
