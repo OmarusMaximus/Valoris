@@ -324,9 +324,16 @@ export default function ArticleDetailPage() {
                   </Link>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">
-                    {FORMULATION_LABELS[article.product.family] || article.product.family}
-                  </Badge>
+                  {article.product.family && (
+                    <Badge variant="secondary">
+                      {FORMULATION_LABELS[article.product.family] || article.product.family}
+                    </Badge>
+                  )}
+                  {article.product.formulation && (
+                    <Badge variant="outline">
+                      {article.product.formulation}
+                    </Badge>
+                  )}
                   {article.product.origin && (
                     <Badge variant="outline">
                       {ORIGIN_LABELS[article.product.origin] || article.product.origin}
