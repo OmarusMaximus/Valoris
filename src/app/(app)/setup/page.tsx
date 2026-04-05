@@ -580,6 +580,7 @@ export default function SetupPage() {
               <TableHead>Catégorie</TableHead>
               <TableHead>Famille</TableHead>
               <TableHead>Unité</TableHead>
+              <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -590,6 +591,16 @@ export default function SetupPage() {
                 <TableCell>{p.category?.name}</TableCell>
                 <TableCell>{FAMILIES.find(f => f.value === p.family)?.label || "-"}</TableCell>
                 <TableCell>{p.unit}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingProdId(p.id); setProdForm({ code: p.code, name: p.name, categoryId: p.category?.id || "", family: p.family || "", formulation: p.formulation || "", origin: p.origin || "", unit: p.unit }) }}>
+                      <EditIcon className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteProduct(p.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -634,9 +645,16 @@ export default function SetupPage() {
               Inclure dans marge de contribution
             </label>
           </div>
-          <Button onClick={addCostCat} className="mt-3" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Ajouter
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button onClick={addCostCat} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> {editingCcId ? "Modifier" : "Ajouter"}
+            </Button>
+            {editingCcId && (
+              <Button variant="outline" size="sm" onClick={() => { setEditingCcId(null); setCcForm({ code: "", name: "", type: "MP", isVariable: true, includeInContributionMargin: false }) }}>
+                Annuler
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
       {costCats.length > 0 && (
@@ -648,6 +666,7 @@ export default function SetupPage() {
               <TableHead>Type</TableHead>
               <TableHead>Variable</TableHead>
               <TableHead>Marge contrib.</TableHead>
+              <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -658,6 +677,16 @@ export default function SetupPage() {
                 <TableCell><Badge variant="secondary">{COST_TYPES.find(t => t.value === c.type)?.label || c.type}</Badge></TableCell>
                 <TableCell>{c.isVariable ? <Badge variant="success">Oui</Badge> : <Badge variant="secondary">Non</Badge>}</TableCell>
                 <TableCell>{c.includeInContributionMargin ? <Badge variant="success">Oui</Badge> : <Badge variant="secondary">Non</Badge>}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCcId(c.id); setCcForm({ code: c.code, name: c.name, type: c.type, isVariable: c.isVariable, includeInContributionMargin: c.includeInContributionMargin }) }}>
+                      <EditIcon className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteCostCat(c.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -704,9 +733,16 @@ export default function SetupPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={addMapping} className="mt-3" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Ajouter
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button onClick={addMapping} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> {editingMapId ? "Modifier" : "Ajouter"}
+            </Button>
+            {editingMapId && (
+              <Button variant="outline" size="sm" onClick={() => { setEditingMapId(null); setMapForm({ accountCode: "", accountName: "", costCategoryId: "" }) }}>
+                Annuler
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
       {mappings.length > 0 && (
@@ -716,6 +752,7 @@ export default function SetupPage() {
               <TableHead>Code compte</TableHead>
               <TableHead>Libellé</TableHead>
               <TableHead>Catégorie de coûts</TableHead>
+              <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -724,6 +761,16 @@ export default function SetupPage() {
                 <TableCell><Badge variant="outline">{m.accountCode}</Badge></TableCell>
                 <TableCell>{m.accountName || "-"}</TableCell>
                 <TableCell>{m.costCategory ? `${m.costCategory.code} - ${m.costCategory.name}` : m.costCategoryId}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingMapId(m.id); setMapForm({ accountCode: m.accountCode, accountName: m.accountName || "", costCategoryId: m.costCategoryId }) }}>
+                      <EditIcon className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteMapping(m.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
