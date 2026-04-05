@@ -35,7 +35,6 @@ import {
   Check,
   X,
   Plus,
-  ChevronUp,
   Building2,
 } from "lucide-react"
 import {
