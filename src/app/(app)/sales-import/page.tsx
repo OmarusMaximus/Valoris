@@ -49,7 +49,6 @@ import {
   Sparkles,
   Copy,
 } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
 
 type EntityOption = { id: string; code: string; name: string }
 
@@ -193,6 +192,97 @@ export default function SalesImportPage() {
       .then(setEntities)
       .catch(() => {})
   }, [])
+
+  const fetchHistory = useCallback(async () => {
+    setLoadingHistory(true)
+    try {
+      const url = entityId
+        ? `/api/sales-import/history?entityId=${entityId}`
+        : "/api/sales-import/history"
+      const res = await fetch(url)
+      if (res.ok) {
+        setImportHistory(await res.json())
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingHistory(false)
+    }
+  }, [entityId])
+
+  // Fetch history when reaching step 4
+  useEffect(() => {
+    if (step === 4) {
+      fetchHistory()
+    }
+  }, [step, fetchHistory])
+
+  const handleRollback = async (batchId: string) => {
+    setRollingBack(true)
+    try {
+      const res = await fetch("/api/sales-import/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId }),
+      })
+      if (res.ok) {
+        await fetchHistory()
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRollingBack(false)
+    }
+  }
+
+  const handleClearAll = async () => {
+    setClearing(true)
+    try {
+      await fetch("/api/sales-import/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "ALL", entityId: entityId || undefined }),
+      })
+      setShowClearConfirm(false)
+      await fetchHistory()
+    } catch {
+      // ignore
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  const toggleCleanupRule = (rule: string) => {
+    setCleanupRules((prev) => {
+      const n = new Set(prev)
+      if (n.has(rule)) {
+        n.delete(rule)
+      } else {
+        n.add(rule)
+      }
+      return n
+    })
+  }
+
+  const handleCleanup = async () => {
+    if (cleanupRules.size === 0) return
+    setCleaning(true)
+    setCleanupResult(null)
+    try {
+      const res = await fetch("/api/sales-import/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules: Array.from(cleanupRules) }),
+      })
+      if (res.ok) {
+        setCleanupResult(await res.json())
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCleaning(false)
+    }
+  }
 
   // Build the clean mapping (only mapped fields) for API calls
   const getCleanMapping = useCallback(() => {
@@ -387,6 +477,8 @@ export default function SalesImportPage() {
         setImportResult({
           imported: data.imported || 0,
           skipped: data.skipped || 0,
+          duplicateCount: data.duplicateCount || 0,
+          batchId: data.batchId || null,
           warnings: data.warnings || [],
           errors: data.errors || [],
         })
@@ -395,6 +487,8 @@ export default function SalesImportPage() {
         setImportResult({
           imported: 0,
           skipped: 0,
+          duplicateCount: 0,
+          batchId: null,
           warnings: [],
           errors: [err.error || `Erreur serveur (${res.status})`],
         })
@@ -404,6 +498,8 @@ export default function SalesImportPage() {
       setImportResult({
         imported: 0,
         skipped: 0,
+        duplicateCount: 0,
+        batchId: null,
         warnings: [],
         errors: ["Erreur de connexion"],
       })
@@ -1168,7 +1264,7 @@ export default function SalesImportPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-4">
                 <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <CheckCircle2 className="h-6 w-6 text-emerald-600" />
                   <div>
@@ -1187,6 +1283,15 @@ export default function SalesImportPage() {
                       {importResult.skipped}
                     </p>
                     <p className="text-xs text-amber-600">Lignes ignorees</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <Copy className="h-6 w-6 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {importResult.duplicateCount}
+                    </p>
+                    <p className="text-xs text-blue-600">Doublons ecrases</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -1221,6 +1326,238 @@ export default function SalesImportPage() {
                       <li key={i} className="text-sm text-red-700">{err}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Donnees existantes - rollback / clear */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <RotateCcw className="h-4 w-4" />
+                Donnees existantes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {importResult.duplicateCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    {importResult.duplicateCount} doublon{importResult.duplicateCount > 1 ? "s" : ""} ecrase{importResult.duplicateCount > 1 ? "s" : ""}
+                  </Badge>
+                  <span className="text-xs text-slate-500">
+                    Les enregistrements existants ont ete mis a jour avec les nouvelles valeurs.
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {importResult.batchId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={rollingBack}
+                    onClick={() => handleRollback(importResult.batchId!)}
+                  >
+                    {rollingBack ? (
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="mr-2 h-3 w-3" />
+                    )}
+                    Annuler le dernier import
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  <Trash2 className="mr-2 h-3 w-3" />
+                  Effacer toute la base de ventes
+                </Button>
+              </div>
+
+              {/* Clear confirmation dialog */}
+              {showClearConfirm && (
+                <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-3">
+                  <p className="text-sm font-medium text-red-800">
+                    Etes-vous sur de vouloir supprimer toutes les donnees de ventes ?
+                    Cette action est irreversible.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={clearing}
+                      onClick={handleClearAll}
+                    >
+                      {clearing ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-3 w-3" />
+                      )}
+                      Confirmer la suppression
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowClearConfirm(false)}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Import History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Historique des imports
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingHistory ? (
+                <div className="flex items-center gap-2 py-4 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-slate-500">Chargement...</span>
+                </div>
+              ) : importHistory.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4 text-center">
+                  Aucun historique d&apos;import.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Fichier</TableHead>
+                        <TableHead className="text-xs text-right">Lignes</TableHead>
+                        <TableHead className="text-xs text-right">Importees</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importHistory.map((batch) => (
+                        <TableRow key={batch.id}>
+                          <TableCell className="text-xs whitespace-nowrap">
+                            {new Date(batch.createdAt).toLocaleDateString("fr-FR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate">
+                            {batch.fileName}
+                          </TableCell>
+                          <TableCell className="text-xs text-right">
+                            {batch.rowCount}
+                          </TableCell>
+                          <TableCell className="text-xs text-right">
+                            {batch.imported}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px]",
+                                batch.status === "COMPLETED"
+                                  ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                                  : "border-slate-300 text-slate-500 bg-slate-50"
+                              )}
+                            >
+                              {batch.status === "COMPLETED" ? "Termine" : "Annule"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {batch.status === "COMPLETED" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={rollingBack}
+                                onClick={() => handleRollback(batch.id)}
+                              >
+                                <RotateCcw className="mr-1 h-3 w-3" />
+                                Rollback
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Data Cleaning */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Nettoyage des donnees
+              </CardTitle>
+              <CardDescription>
+                Appliquez des regles de nettoyage sur les donnees importees.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                {[
+                  { rule: "TRIM_WHITESPACE", label: "Supprimer les espaces inutiles" },
+                  { rule: "NORMALIZE_CASE", label: "Normaliser la casse (Majuscule initiale)" },
+                  { rule: "FIX_ACCENTS", label: "Corriger les accents" },
+                  { rule: "DEDUPLICATE_CUSTOMERS", label: "Fusionner les doublons clients" },
+                  { rule: "REMOVE_EMPTY", label: "Supprimer les elements sans historique" },
+                ].map(({ rule, label }) => (
+                  <div key={rule} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`cleanup-${rule}`}
+                      checked={cleanupRules.has(rule)}
+                      onChange={() => toggleCleanupRule(rule)}
+                      className="rounded"
+                    />
+                    <label
+                      htmlFor={`cleanup-${rule}`}
+                      className="text-sm text-slate-700 cursor-pointer"
+                    >
+                      {label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                disabled={cleanupRules.size === 0 || cleaning}
+                onClick={handleCleanup}
+              >
+                {cleaning ? (
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-3 w-3" />
+                )}
+                Nettoyer
+              </Button>
+              {cleanupResult && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1">
+                  <p className="text-sm font-medium text-emerald-800">
+                    {cleanupResult.totalChanges} modification{cleanupResult.totalChanges > 1 ? "s" : ""} effectuee{cleanupResult.totalChanges > 1 ? "s" : ""}
+                  </p>
+                  {Object.entries(cleanupResult.summary).map(([rule, count]) => (
+                    <p key={rule} className="text-xs text-emerald-700">
+                      {rule}: {count} modification{count > 1 ? "s" : ""}
+                    </p>
+                  ))}
                 </div>
               )}
             </CardContent>

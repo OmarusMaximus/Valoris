@@ -61,12 +61,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Sales Reps
-      const reps = await prisma.salesRep.findMany({ select: { id: true, name: true } })
+      // Sales Reps (firstName + lastName)
+      const reps = await prisma.salesRep.findMany({ select: { id: true, firstName: true, lastName: true } })
       for (const r of reps) {
-        const trimmedName = r.name.trim()
-        if (trimmedName !== r.name) {
-          await prisma.salesRep.update({ where: { id: r.id }, data: { name: trimmedName } })
+        const trimmedFirst = r.firstName.trim()
+        const trimmedLast = r.lastName.trim()
+        if (trimmedFirst !== r.firstName || trimmedLast !== r.lastName) {
+          await prisma.salesRep.update({ where: { id: r.id }, data: { firstName: trimmedFirst, lastName: trimmedLast } })
           trimmed++
         }
       }
@@ -96,11 +97,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const reps = await prisma.salesRep.findMany({ select: { id: true, name: true } })
+      const reps = await prisma.salesRep.findMany({ select: { id: true, firstName: true, lastName: true } })
       for (const r of reps) {
-        const newName = normalizeCase(r.name)
-        if (newName !== r.name) {
-          await prisma.salesRep.update({ where: { id: r.id }, data: { name: newName } })
+        const newFirst = normalizeCase(r.firstName)
+        const newLast = normalizeCase(r.lastName)
+        if (newFirst !== r.firstName || newLast !== r.lastName) {
+          await prisma.salesRep.update({ where: { id: r.id }, data: { firstName: newFirst, lastName: newLast } })
           normalized++
         }
       }
@@ -130,11 +132,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const reps = await prisma.salesRep.findMany({ select: { id: true, name: true } })
+      const reps = await prisma.salesRep.findMany({ select: { id: true, firstName: true, lastName: true } })
       for (const r of reps) {
-        const newName = fixAccents(r.name)
-        if (newName !== r.name) {
-          await prisma.salesRep.update({ where: { id: r.id }, data: { name: newName } })
+        const newFirst = fixAccents(r.firstName)
+        const newLast = fixAccents(r.lastName)
+        if (newFirst !== r.firstName || newLast !== r.lastName) {
+          await prisma.salesRep.update({ where: { id: r.id }, data: { firstName: newFirst, lastName: newLast } })
           fixed++
         }
       }
@@ -151,19 +154,20 @@ export async function POST(request: NextRequest) {
       })
 
       // Group by normalized name
-      const byName = new Map<string, typeof customers>()
+      type CustEntry = { id: string; code: string; name: string; _count: { salesHistory: number } }
+      const byName: Record<string, CustEntry[]> = {}
       for (const c of customers) {
         const key = c.name.trim().toLowerCase()
-        const group = byName.get(key) || []
-        group.push(c)
-        byName.set(key, group)
+        if (!byName[key]) byName[key] = []
+        byName[key].push(c)
       }
 
-      for (const [, group] of byName) {
+      for (const key of Object.keys(byName)) {
+        const group = byName[key]
         if (group.length <= 1) continue
 
         // Keep the customer with the most sales history
-        group.sort((a, b) => b._count.salesHistory - a._count.salesHistory)
+        group.sort((a: CustEntry, b: CustEntry) => b._count.salesHistory - a._count.salesHistory)
         const keeper = group[0]
         const duplicates = group.slice(1)
 

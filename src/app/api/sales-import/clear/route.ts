@@ -44,9 +44,11 @@ export async function POST(request: NextRequest) {
 
       // Delete all ImportedRecords then ImportBatches
       await prisma.importedRecord.deleteMany({})
-      await prisma.importBatch.deleteMany(
-        entityId ? { where: { entityId } } : {}
-      )
+      if (entityId) {
+        await prisma.importBatch.deleteMany({ where: { entityId } })
+      } else {
+        await prisma.importBatch.deleteMany({})
+      }
 
       return NextResponse.json({ deleted })
     }
