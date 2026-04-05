@@ -33,6 +33,8 @@ import {
   ChevronRight,
   Plus,
   Loader2,
+  Edit as EditIcon,
+  Trash2,
 } from "lucide-react"
 
 // ─── Types ───
@@ -111,6 +113,13 @@ export default function SetupPage() {
   // ─── Method ───
   const [method, setMethod] = useState("CUMP")
 
+  // ─── Editing IDs ───
+  const [editingEntId, setEditingEntId] = useState<string | null>(null)
+  const [editingCatId, setEditingCatId] = useState<string | null>(null)
+  const [editingProdId, setEditingProdId] = useState<string | null>(null)
+  const [editingCcId, setEditingCcId] = useState<string | null>(null)
+  const [editingMapId, setEditingMapId] = useState<string | null>(null)
+
   // ─── Saving ───
   const [saving, setSaving] = useState(false)
 
@@ -181,75 +190,123 @@ export default function SetupPage() {
     setEntLoading(true)
     try {
       const r = await fetch("/api/setup/entities", {
-        method: "POST",
+        method: editingEntId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entForm),
+        body: JSON.stringify(editingEntId ? { id: editingEntId, ...entForm } : entForm),
       })
       if (r.ok) {
         setEntForm({ code: "", name: "", country: "", currency: "EUR" })
+        setEditingEntId(null)
         fetchEntities()
       }
     } catch { /* */ }
     setEntLoading(false)
   }
 
+  const deleteEntity = async (id: string) => {
+    try {
+      const r = await fetch("/api/setup/entities", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (r.ok) fetchEntities()
+    } catch { /* */ }
+  }
+
   const addCategory = async () => {
     if (!catForm.code || !catForm.name) return
     try {
-      const r = await fetch("/api/products/categories", {
-        method: "POST",
+      const url = editingCatId ? `/api/products/categories/${editingCatId}` : "/api/products/categories"
+      const r = await fetch(url, {
+        method: editingCatId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(catForm),
       })
       if (r.ok) {
         setCatForm({ code: "", name: "", type: "FINISHED_PRODUCT" })
+        setEditingCatId(null)
         fetchCategories()
       }
+    } catch { /* */ }
+  }
+
+  const deleteCategory = async (id: string) => {
+    try {
+      const r = await fetch(`/api/products/categories/${id}`, { method: "DELETE" })
+      if (r.ok) fetchCategories()
     } catch { /* */ }
   }
 
   const addProduct = async () => {
     if (!prodForm.code || !prodForm.name || !prodForm.categoryId || !prodEntity) return
     try {
-      const r = await fetch("/api/products", {
-        method: "POST",
+      const url = editingProdId ? `/api/products/${editingProdId}` : "/api/products"
+      const r = await fetch(url, {
+        method: editingProdId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...prodForm, entityId: prodEntity }),
       })
       if (r.ok) {
         setProdForm({ code: "", name: "", categoryId: "", family: "", formulation: "", origin: "", unit: "KG" })
+        setEditingProdId(null)
         fetchProducts()
       }
+    } catch { /* */ }
+  }
+
+  const deleteProduct = async (id: string) => {
+    try {
+      const r = await fetch(`/api/products/${id}`, { method: "DELETE" })
+      if (r.ok) fetchProducts()
     } catch { /* */ }
   }
 
   const addCostCat = async () => {
     if (!ccForm.code || !ccForm.name) return
     try {
-      const r = await fetch("/api/cost-categories", {
-        method: "POST",
+      const url = editingCcId ? `/api/cost-categories/${editingCcId}` : "/api/cost-categories"
+      const r = await fetch(url, {
+        method: editingCcId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...ccForm, sortOrder: costCats.length }),
       })
       if (r.ok) {
         setCcForm({ code: "", name: "", type: "MP", isVariable: true, includeInContributionMargin: false })
+        setEditingCcId(null)
         fetchCostCats()
       }
+    } catch { /* */ }
+  }
+
+  const deleteCostCat = async (id: string) => {
+    try {
+      const r = await fetch(`/api/cost-categories/${id}`, { method: "DELETE" })
+      if (r.ok) fetchCostCats()
     } catch { /* */ }
   }
 
   const addMapping = async () => {
     if (!mapForm.accountCode || !mapForm.costCategoryId) return
     try {
-      const r = await fetch("/api/account-mappings", {
-        method: "POST",
+      const url = editingMapId ? `/api/account-mappings/${editingMapId}` : "/api/account-mappings"
+      const r = await fetch(url, {
+        method: editingMapId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...mapForm, source: mapSource }),
       })
       if (r.ok) {
         setMapForm({ accountCode: "", accountName: "", costCategoryId: "" })
+        setEditingMapId(null)
         fetchMappings()
       }
+    } catch { /* */ }
+  }
+
+  const deleteMapping = async (id: string) => {
+    try {
+      const r = await fetch(`/api/account-mappings/${id}`, { method: "DELETE" })
+      if (r.ok) fetchMappings()
     } catch { /* */ }
   }
 
@@ -299,9 +356,16 @@ export default function SetupPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={addEntity} disabled={entLoading} className="mt-3" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Ajouter
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button onClick={addEntity} disabled={entLoading} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> {editingEntId ? "Modifier" : "Ajouter"}
+            </Button>
+            {editingEntId && (
+              <Button variant="outline" size="sm" onClick={() => { setEditingEntId(null); setEntForm({ code: "", name: "", country: "", currency: "EUR" }) }}>
+                Annuler
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
       {entities.length > 0 && (
@@ -312,6 +376,7 @@ export default function SetupPage() {
               <TableHead>Nom</TableHead>
               <TableHead>Pays</TableHead>
               <TableHead>Devise</TableHead>
+              <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -321,6 +386,16 @@ export default function SetupPage() {
                 <TableCell>{e.name}</TableCell>
                 <TableCell>{e.country}</TableCell>
                 <TableCell>{e.currency}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingEntId(e.id); setEntForm({ code: e.code, name: e.name, country: e.country, currency: e.currency }) }}>
+                      <EditIcon className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteEntity(e.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -359,9 +434,16 @@ export default function SetupPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={addCategory} className="mt-3" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Ajouter
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button onClick={addCategory} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> {editingCatId ? "Modifier" : "Ajouter"}
+            </Button>
+            {editingCatId && (
+              <Button variant="outline" size="sm" onClick={() => { setEditingCatId(null); setCatForm({ code: "", name: "", type: "FINISHED_PRODUCT" }) }}>
+                Annuler
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
       {categories.length > 0 && (

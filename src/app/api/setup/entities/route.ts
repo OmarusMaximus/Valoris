@@ -83,3 +83,43 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!requireRole(user.role, [ROLES.ADMIN, ROLES.FPA_DIRECTOR])) {
+      return NextResponse.json(
+        { error: 'Only ADMIN or FPA_DIRECTOR can delete entities' },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const { id } = body
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'id is required' },
+        { status: 400 }
+      )
+    }
+
+    // Soft-delete: set active = false
+    const entity = await prisma.entity.update({
+      where: { id },
+      data: { active: false },
+    })
+
+    return NextResponse.json(entity)
+  } catch (error) {
+    console.error('Delete entity error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
