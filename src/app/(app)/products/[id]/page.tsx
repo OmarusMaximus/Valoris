@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn, formatNumber, formatPercent, formatCurrency } from "@/lib/utils"
+import { useAppStore } from "@/store/app-store"
 import {
   ArrowLeft,
   Plus,
@@ -72,6 +73,7 @@ type Product = {
   origin?: string
   unit: string
   active: boolean
+  entity?: { id: string; code: string; name: string; currency: string } | null
 }
 
 type BomItem = {
@@ -173,6 +175,17 @@ export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
   const productId = params.id as string
+  const { displayCurrency } = useAppStore()
+
+  // Resolve currency: displayCurrency from store, or product entity currency, or EUR
+  const getCurrency = useCallback(() => {
+    if (displayCurrency) return displayCurrency
+    return product?.entity?.currency || 'EUR'
+  }, [displayCurrency, product])
+
+  const fmtCurrency = useCallback((amount: number) => {
+    return formatCurrency(amount, getCurrency())
+  }, [getCurrency])
 
   const [product, setProduct] = useState<Product | null>(null)
   const [bomItems, setBomItems] = useState<BomItem[]>([])
@@ -427,7 +440,7 @@ export default function ProductDetailPage() {
             <div>
               <p className="text-sm text-slate-500">CA Global</p>
               <p className="text-xl font-bold text-slate-900">
-                {formatCurrency(totalRevenue)}
+                {fmtCurrency(totalRevenue)}
               </p>
             </div>
           </CardContent>
@@ -440,7 +453,7 @@ export default function ProductDetailPage() {
             <div>
               <p className="text-sm text-slate-500">Cout standard moyen</p>
               <p className="text-xl font-bold text-slate-900">
-                {formatCurrency(avgStandardCost)}
+                {fmtCurrency(avgStandardCost)}
               </p>
             </div>
           </CardContent>
@@ -454,7 +467,7 @@ export default function ProductDetailPage() {
               <p className="text-sm text-slate-500">Marge globale</p>
               <div className="flex items-center gap-2">
                 <p className="text-xl font-bold text-slate-900">
-                  {formatCurrency(totalMargin)}
+                  {fmtCurrency(totalMargin)}
                 </p>
                 <Badge
                   className={cn(
@@ -567,10 +580,10 @@ export default function ProductDetailPage() {
                         <div className="mt-2 flex items-center justify-between">
                           <div>
                             <p className="text-sm font-bold text-slate-900">
-                              {formatCurrency(article.catalogPrice)}
+                              {fmtCurrency(article.catalogPrice)}
                             </p>
                             <p className="text-xs text-slate-400">
-                              Cout: {formatCurrency(article.standardCost)}
+                              Cout: {fmtCurrency(article.standardCost)}
                             </p>
                           </div>
                           {margin !== null && (
@@ -713,10 +726,10 @@ export default function ProductDetailPage() {
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                     <YAxis
                       tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => formatCurrency(v)}
+                      tickFormatter={(v) => fmtCurrency(v)}
                     />
                     <Tooltip
-                      formatter={(v) => formatCurrency(Number(v))}
+                      formatter={(v) => fmtCurrency(Number(v))}
                     />
                     <Legend />
                     {articles.map((article, i) => (
@@ -786,7 +799,7 @@ export default function ProductDetailPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(cust.revenue)}
+                          {fmtCurrency(cust.revenue)}
                         </TableCell>
                         <TableCell className="text-right">
                           <span
@@ -797,7 +810,7 @@ export default function ProductDetailPage() {
                                 : "text-red-600"
                             )}
                           >
-                            {formatCurrency(cust.margin)}
+                            {fmtCurrency(cust.margin)}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">

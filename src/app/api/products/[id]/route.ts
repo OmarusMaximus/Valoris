@@ -18,6 +18,7 @@ export async function GET(
       where: { id },
       include: {
         category: true,
+        entity: true,
         bomItems: {
           include: { childProduct: true },
         },
