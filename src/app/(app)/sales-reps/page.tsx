@@ -5,14 +5,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -29,9 +21,16 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
-import { Loader2, Users, Search, Plus, ChevronDown, ChevronRight } from "lucide-react"
+import {
+  Loader2,
+  UserCheck,
+  Search,
+  Plus,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -41,57 +40,56 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
-type Customer = {
+type SalesRep = {
   id: string
   code: string
-  name: string
-  type: string
+  firstName: string
+  lastName: string
   region: string
+  email: string
   totalRevenue: number
-  totalMargin: number
-  articles?: { name: string; revenue: number; margin: number }[]
+  clientCount: number
+  topClients?: { name: string; revenue: number }[]
+  topArticles?: { name: string; revenue: number }[]
   monthlyTrend?: { month: string; revenue: number }[]
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  COOPERATIVE: "bg-blue-100 text-blue-800",
-  DISTRIBUTEUR: "bg-amber-100 text-amber-800",
-  DIRECT: "bg-green-100 text-green-800",
-  EXPORT: "bg-purple-100 text-purple-800",
-}
-
-const TYPE_OPTIONS = ["Tous", "COOPERATIVE", "DISTRIBUTEUR", "DIRECT", "EXPORT"]
-
 type FormData = {
   code: string
-  name: string
-  type: string
+  firstName: string
+  lastName: string
   region: string
+  email: string
 }
 
-const emptyForm: FormData = { code: "", name: "", type: "DIRECT", region: "" }
+const emptyForm: FormData = {
+  code: "",
+  firstName: "",
+  lastName: "",
+  region: "",
+  email: "",
+}
 
-export default function CustomersPage() {
+export default function SalesRepsPage() {
   const { selectedEntityId } = useAppStore()
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [reps, setReps] = useState<SalesRep[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState("Tous")
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchReps = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (selectedEntityId) params.set("entityId", selectedEntityId)
-      const res = await fetch(`/api/customers?${params}`)
+      const res = await fetch(`/api/sales-reps?${params}`)
       if (res.ok) {
         const data = await res.json()
-        setCustomers(Array.isArray(data) ? data : data.customers || [])
+        setReps(Array.isArray(data) ? data : data.salesReps || [])
       }
     } catch {
       // silently handle
@@ -101,8 +99,8 @@ export default function CustomersPage() {
   }, [selectedEntityId])
 
   useEffect(() => {
-    fetchCustomers()
-  }, [fetchCustomers])
+    fetchReps()
+  }, [fetchReps])
 
   const handleExpand = async (id: string) => {
     if (expandedId === id) {
@@ -112,18 +110,19 @@ export default function CustomersPage() {
     setExpandedId(id)
     setDetailLoading(true)
     try {
-      const res = await fetch(`/api/customers/${id}`)
+      const res = await fetch(`/api/sales-reps/${id}`)
       if (res.ok) {
         const detail = await res.json()
-        setCustomers((prev) =>
-          prev.map((c) =>
-            c.id === id
+        setReps((prev) =>
+          prev.map((r) =>
+            r.id === id
               ? {
-                  ...c,
-                  articles: detail.articles || [],
+                  ...r,
+                  topClients: detail.topClients || [],
+                  topArticles: detail.topArticles || [],
                   monthlyTrend: detail.monthlyTrend || [],
                 }
-              : c
+              : r
           )
         )
       }
@@ -137,7 +136,7 @@ export default function CustomersPage() {
   const handleAdd = async () => {
     setSaving(true)
     try {
-      const res = await fetch("/api/customers", {
+      const res = await fetch("/api/sales-reps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, entityId: selectedEntityId }),
@@ -145,7 +144,7 @@ export default function CustomersPage() {
       if (res.ok) {
         setDialogOpen(false)
         setForm(emptyForm)
-        fetchCustomers()
+        fetchReps()
       }
     } catch {
       // silently handle
@@ -154,22 +153,24 @@ export default function CustomersPage() {
     }
   }
 
-  const filtered = customers.filter((c) => {
-    const matchSearch =
-      !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase())
-    const matchType = typeFilter === "Tous" || c.type === typeFilter
-    return matchSearch && matchType
+  const filtered = reps.filter((r) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      r.firstName.toLowerCase().includes(q) ||
+      r.lastName.toLowerCase().includes(q) ||
+      r.code.toLowerCase().includes(q) ||
+      r.email.toLowerCase().includes(q)
+    )
   })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Commerciaux</h1>
           <p className="text-sm text-slate-500">
-            Gestion et suivi des clients
+            Gestion et suivi des commerciaux
           </p>
         </div>
         <Button
@@ -179,35 +180,21 @@ export default function CustomersPage() {
           }}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Ajouter un client
+          Ajouter un commercial
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Rechercher par nom ou code..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {TYPE_OPTIONS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t === "Tous" ? "Tous les types" : t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Rechercher par nom, code ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
@@ -221,8 +208,8 @@ export default function CustomersPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex h-[300px] flex-col items-center justify-center text-slate-500">
-              <Users className="mb-2 h-10 w-10" />
-              <p className="text-sm">Aucun client trouve</p>
+              <UserCheck className="mb-2 h-10 w-10" />
+              <p className="text-sm">Aucun commercial trouve</p>
             </div>
           ) : (
             <Table>
@@ -230,120 +217,121 @@ export default function CustomersPage() {
                 <TableRow>
                   <TableHead className="w-8" />
                   <TableHead>Code</TableHead>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Nom complet</TableHead>
                   <TableHead>Region</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead className="text-right">CA Total</TableHead>
-                  <TableHead className="text-right">Marge</TableHead>
+                  <TableHead className="text-right">Clients</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((customer) => (
+                {filtered.map((rep) => (
                   <>
                     <TableRow
-                      key={customer.id}
+                      key={rep.id}
                       className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => handleExpand(customer.id)}
+                      onClick={() => handleExpand(rep.id)}
                     >
                       <TableCell>
-                        {expandedId === customer.id ? (
+                        {expandedId === rep.id ? (
                           <ChevronDown className="h-4 w-4 text-slate-400" />
                         ) : (
                           <ChevronRight className="h-4 w-4 text-slate-400" />
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {customer.code}
+                        {rep.code}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {customer.name}
+                        {rep.firstName} {rep.lastName}
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            "text-xs",
-                            TYPE_COLORS[customer.type] || "bg-slate-100 text-slate-800"
-                          )}
-                        >
-                          {customer.type}
-                        </Badge>
+                      <TableCell>{rep.region}</TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        {rep.email}
                       </TableCell>
-                      <TableCell>{customer.region}</TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(customer.totalRevenue)}
+                        {formatCurrency(rep.totalRevenue)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span
-                          className={cn(
-                            "font-medium",
-                            customer.totalMargin >= 0
-                              ? "text-emerald-600"
-                              : "text-red-600"
-                          )}
-                        >
-                          {formatCurrency(customer.totalMargin)}
-                        </span>
+                        {formatNumber(rep.clientCount, 0)}
                       </TableCell>
                     </TableRow>
-                    {expandedId === customer.id && (
-                      <TableRow key={`${customer.id}-detail`}>
+                    {expandedId === rep.id && (
+                      <TableRow key={`${rep.id}-detail`}>
                         <TableCell colSpan={7} className="bg-slate-50 p-4">
                           {detailLoading ? (
                             <div className="flex h-[100px] items-center justify-center">
                               <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                             </div>
                           ) : (
-                            <div className="grid gap-6 lg:grid-cols-2">
-                              {/* Revenue by article */}
+                            <div className="grid gap-6 lg:grid-cols-3">
+                              {/* Top Clients */}
                               <div>
                                 <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  CA par article
+                                  Top clients
                                 </h4>
-                                {customer.articles &&
-                                customer.articles.length > 0 ? (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Article</TableHead>
-                                        <TableHead className="text-right">
-                                          CA
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                          Marge
-                                        </TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {customer.articles.map((a, i) => (
-                                        <TableRow key={i}>
-                                          <TableCell className="text-sm">
-                                            {a.name}
-                                          </TableCell>
-                                          <TableCell className="text-right text-sm">
-                                            {formatCurrency(a.revenue)}
-                                          </TableCell>
-                                          <TableCell className="text-right text-sm">
-                                            {formatCurrency(a.margin)}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
+                                {rep.topClients && rep.topClients.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {rep.topClients.map((c, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
+                                      >
+                                        <span className="text-sm">
+                                          {c.name}
+                                        </span>
+                                        <span className="text-sm font-medium">
+                                          {formatCurrency(c.revenue)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 ) : (
                                   <p className="text-sm text-slate-400">
                                     Aucune donnee
                                   </p>
                                 )}
                               </div>
-                              {/* Monthly trend */}
+                              {/* Top Articles */}
                               <div>
                                 <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  Tendance mensuelle
+                                  Top articles
                                 </h4>
-                                {customer.monthlyTrend &&
-                                customer.monthlyTrend.length > 0 ? (
-                                  <ResponsiveContainer width="100%" height={180}>
-                                    <BarChart data={customer.monthlyTrend}>
+                                {rep.topArticles &&
+                                rep.topArticles.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {rep.topArticles.map((a, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
+                                      >
+                                        <span className="text-sm">
+                                          {a.name}
+                                        </span>
+                                        <span className="text-sm font-medium">
+                                          {formatCurrency(a.revenue)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-slate-400">
+                                    Aucune donnee
+                                  </p>
+                                )}
+                              </div>
+                              {/* Monthly Chart */}
+                              <div>
+                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
+                                  CA mensuel
+                                </h4>
+                                {rep.monthlyTrend &&
+                                rep.monthlyTrend.length > 0 ? (
+                                  <ResponsiveContainer
+                                    width="100%"
+                                    height={180}
+                                  >
+                                    <BarChart data={rep.monthlyTrend}>
                                       <XAxis
                                         dataKey="month"
                                         tick={{ fontSize: 11 }}
@@ -356,7 +344,7 @@ export default function CustomersPage() {
                                       />
                                       <Bar
                                         dataKey="revenue"
-                                        fill="#3b82f6"
+                                        fill="#6366f1"
                                         radius={[4, 4, 0, 0]}
                                       />
                                     </BarChart>
@@ -380,58 +368,64 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Add Customer Dialog */}
+      {/* Add Sales Rep Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajouter un client</DialogTitle>
+            <DialogTitle>Ajouter un commercial</DialogTitle>
             <DialogDescription>
-              Renseignez les informations du nouveau client.
+              Renseignez les informations du nouveau commercial.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rep-code">Code</Label>
+              <Input
+                id="rep-code"
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                placeholder="COM-001"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
+                <Label htmlFor="firstName">Prenom</Label>
                 <Input
-                  id="code"
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
-                  placeholder="CLI-001"
+                  id="firstName"
+                  value={form.firstName}
+                  onChange={(e) =>
+                    setForm({ ...form, firstName: e.target.value })
+                  }
+                  placeholder="Prenom"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">Nom</Label>
+                <Label htmlFor="lastName">Nom</Label>
                 <Input
-                  id="name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Nom du client"
+                  id="lastName"
+                  value={form.lastName}
+                  onChange={(e) =>
+                    setForm({ ...form, lastName: e.target.value })
+                  }
+                  placeholder="Nom"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={form.type}
-                  onValueChange={(v) => setForm({ ...form, type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="COOPERATIVE">Cooperative</SelectItem>
-                    <SelectItem value="DISTRIBUTEUR">Distributeur</SelectItem>
-                    <SelectItem value="DIRECT">Direct</SelectItem>
-                    <SelectItem value="EXPORT">Export</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="rep-email">Email</Label>
+                <Input
+                  id="rep-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="email@exemple.com"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="region">Region</Label>
+                <Label htmlFor="rep-region">Region</Label>
                 <Input
-                  id="region"
+                  id="rep-region"
                   value={form.region}
                   onChange={(e) =>
                     setForm({ ...form, region: e.target.value })
@@ -447,7 +441,9 @@ export default function CustomersPage() {
             </Button>
             <Button
               onClick={handleAdd}
-              disabled={saving || !form.code || !form.name}
+              disabled={
+                saving || !form.code || !form.firstName || !form.lastName
+              }
             >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ajouter
