@@ -3,35 +3,9 @@ import prisma from '@/lib/prisma'
 import { getCurrentUser, requireRole, ROLES } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 
-const COLUMN_MAPS = {
-  period: ['Period', 'Période', 'Mois', 'period', 'période', 'mois', 'PERIOD', 'PERIODE', 'MOIS'],
-  date: ['Date', 'date', 'DATE', 'Invoice Date', 'Date facture', 'date_facture', 'invoice_date', 'DATE_FACTURE'],
-  articleCode: ['Article Code', 'Code Article', 'article_code', 'code_article', 'ArticleCode', 'CodeArticle', 'ARTICLE_CODE', 'CODE_ARTICLE'],
-  articleName: ['Article Name', 'Nom Article', 'article_name', 'nom_article', 'ArticleName', 'NomArticle', 'ARTICLE_NAME', 'NOM_ARTICLE'],
-  productCode: ['Product Code', 'Code Produit', 'product_code', 'code_produit', 'ProductCode', 'CodeProduit', 'PRODUCT_CODE', 'CODE_PRODUIT'],
-  customerCode: ['Customer Code', 'Code Client', 'customer_code', 'code_client', 'CustomerCode', 'CodeClient', 'CUSTOMER_CODE', 'CODE_CLIENT'],
-  customerName: ['Customer Name', 'Nom Client', 'customer_name', 'nom_client', 'CustomerName', 'NomClient', 'CUSTOMER_NAME', 'NOM_CLIENT'],
-  customerType: ['Customer Type', 'Type Client', 'customer_type', 'type_client', 'CUSTOMER_TYPE', 'TYPE_CLIENT'],
-  salesRepCode: ['Sales Rep Code', 'Code Commercial', 'sales_rep_code', 'code_commercial', 'SalesRepCode', 'CodeCommercial', 'SALES_REP_CODE', 'CODE_COMMERCIAL'],
-  salesRepName: ['Sales Rep Name', 'Nom Commercial', 'sales_rep_name', 'nom_commercial', 'SalesRepName', 'NomCommercial', 'SALES_REP_NAME', 'NOM_COMMERCIAL'],
-  revenue: ['Revenue', 'CA', "Chiffre d'affaires", 'revenue', 'ca', 'chiffre_affaires', 'REVENUE', 'CHIFFRE_AFFAIRES'],
-  quantity: ['Quantity', 'Quantité', 'Qté', 'quantity', 'quantité', 'qté', 'qty', 'QUANTITY', 'QUANTITE', 'QTE', 'QTY'],
-  unitPrice: ['Unit Price', 'Prix unitaire', 'unit_price', 'prix_unitaire', 'UnitPrice', 'PrixUnitaire', 'UNIT_PRICE', 'PRIX_UNITAIRE'],
-  variableCost: ['Variable Cost', 'Coût variable', 'variable_cost', 'cout_variable', 'VariableCost', 'CoutVariable', 'VARIABLE_COST', 'COUT_VARIABLE'],
-}
-
-function findColumnValue(row: Record<string, unknown>, candidates: string[]): unknown {
-  for (const key of candidates) {
-    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
-      return row[key]
-    }
-  }
-  return undefined
-}
-
 /**
  * Convert a date value (from Excel) to YYYY-MM period.
- * Handles: "2026-03-15", "15/03/2026", Excel serial numbers, Date objects.
+ * Handles: "2026-03-15", "15/03/2026", "11/01/2023", Excel serial numbers, Date objects.
  */
 function dateToPeriod(value: unknown): string {
   if (!value) return ''
@@ -40,13 +14,11 @@ function dateToPeriod(value: unknown): string {
   // Already a period format (YYYY-MM)
   if (/^\d{4}-\d{2}$/.test(str)) return str
 
-  // Try parsing as date string
   let d: Date | null = null
 
   // Excel serial number (e.g., 46066)
   if (/^\d{4,5}(\.\d+)?$/.test(str)) {
     const serial = parseFloat(str)
-    // Excel epoch is 1900-01-01, but has a leap year bug (+1)
     d = new Date(Date.UTC(1899, 11, 30 + Math.floor(serial)))
   }
 
@@ -55,19 +27,23 @@ function dateToPeriod(value: unknown): string {
     d = new Date(str)
   }
 
-  // French format: 15/03/2026 or 15-03-2026
+  // DD/MM/YYYY or MM/DD/YYYY format
   if (!d) {
     const match = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
     if (match) {
-      d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]))
-    }
-  }
-
-  // US format: 03/15/2026
-  if (!d) {
-    const match = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
-    if (match) {
-      d = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]))
+      const a = parseInt(match[1])
+      const b = parseInt(match[2])
+      const year = parseInt(match[3])
+      // If first number > 12, it must be day (DD/MM/YYYY)
+      if (a > 12) {
+        d = new Date(year, b - 1, a)
+      } else if (b > 12) {
+        // Second number > 12, must be day (MM/DD/YYYY)
+        d = new Date(year, a - 1, b)
+      } else {
+        // Ambiguous — default to DD/MM/YYYY (French convention)
+        d = new Date(year, b - 1, a)
+      }
     }
   }
 
@@ -89,7 +65,120 @@ function parseExcelData(buffer: Buffer) {
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
 }
 
-// POST: scan (preview) or import
+// ---- Fuzzy auto-suggest logic ----
+
+type TargetField =
+  | 'date' | 'period' | 'articleCode' | 'articleName'
+  | 'customerCode' | 'customerName' | 'customerType'
+  | 'salesRepCode' | 'salesRepName'
+  | 'revenue' | 'quantity' | 'unitPrice' | 'variableCost'
+
+// For fields that need BOTH a category keyword AND a specificity keyword,
+// we use a tuple of [categoryKeywords, specificityKeywords].
+// For fields that just need any matching keyword, we use a flat array.
+type KeywordRule = string[] | [string[], string[]]
+
+const KEYWORD_MAP: Record<TargetField, KeywordRule> = {
+  date: ['date', 'calendrier', 'jour', 'day'],
+  period: ['period', 'période', 'periode', 'mois', 'month'],
+  articleCode: [['article', 'produit', 'product', 'art', 'sku'], ['code', 'ref', 'référence', 'reference']],
+  articleName: [['article', 'produit', 'product'], ['nom', 'name', 'désignation', 'designation', 'libellé', 'libelle', 'label']],
+  customerCode: [['client', 'customer', 'cust'], ['code', 'ref', 'id', 'num']],
+  customerName: [['client', 'customer', 'cust'], ['nom', 'name', 'raison']],
+  customerType: [['type'], ['client', 'customer']],
+  salesRepCode: [['commercial', 'vendeur', 'representant', 'rep', 'sales'], ['code', 'ref', 'id']],
+  salesRepName: [['commercial', 'vendeur', 'representant', 'rep', 'sales'], ['nom', 'name']],
+  revenue: ['montant', 'amount', 'revenue', 'ca', 'chiffre', 'total', 'sum', 'ht'],
+  quantity: ['quantité', 'quantite', 'qty', 'qte', 'quantity', 'volume'],
+  unitPrice: ['prix', 'price', 'tarif', 'unit'],
+  variableCost: ['coût', 'cout', 'cost', 'variable'],
+}
+
+/**
+ * Normalize a string for accent-insensitive, case-insensitive matching.
+ */
+function normalize(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function scoreColumn(header: string, rule: KeywordRule): number {
+  const h = normalize(header)
+
+  if (Array.isArray(rule[0]) && Array.isArray(rule[1])) {
+    // Compound rule: need matches from both groups
+    const [groupA, groupB] = rule as [string[], string[]]
+    let scoreA = 0
+    let scoreB = 0
+    for (const kw of groupA) {
+      if (h.includes(normalize(kw))) scoreA++
+    }
+    for (const kw of groupB) {
+      if (h.includes(normalize(kw))) scoreB++
+    }
+    // Must match at least one from each group
+    if (scoreA > 0 && scoreB > 0) return scoreA + scoreB
+    return 0
+  }
+
+  // Simple rule: count matching keywords
+  const keywords = rule as string[]
+  let score = 0
+  for (const kw of keywords) {
+    if (h.includes(normalize(kw))) score++
+  }
+  return score
+}
+
+function suggestMapping(columns: string[]): Record<TargetField, string | null> {
+  const targets = Object.keys(KEYWORD_MAP) as TargetField[]
+  const result: Record<string, string | null> = {}
+  const usedColumns = new Set<string>()
+
+  // Score all (target, column) pairs, then greedily assign best matches
+  const pairs: Array<{ target: TargetField; column: string; score: number }> = []
+  for (const target of targets) {
+    for (const col of columns) {
+      const s = scoreColumn(col, KEYWORD_MAP[target])
+      if (s > 0) {
+        pairs.push({ target, column: col, score: s })
+      }
+    }
+  }
+  // Sort by score descending
+  pairs.sort((a, b) => b.score - a.score)
+
+  const assignedTargets = new Set<string>()
+  for (const { target, column } of pairs) {
+    if (assignedTargets.has(target) || usedColumns.has(column)) continue
+    result[target] = column
+    assignedTargets.add(target)
+    usedColumns.add(column)
+  }
+
+  // Fill unassigned with null
+  for (const target of targets) {
+    if (!(target in result)) {
+      result[target] = null
+    }
+  }
+
+  return result as Record<TargetField, string | null>
+}
+
+type ColumnMapping = Partial<Record<TargetField, string>>
+
+/**
+ * Read a value from a row using the user-provided mapping.
+ */
+function getMappedValue(row: Record<string, unknown>, mapping: ColumnMapping, field: TargetField): unknown {
+  const colName = mapping[field]
+  if (!colName) return undefined
+  const val = row[colName]
+  if (val === undefined || val === null || val === '') return undefined
+  return val
+}
+
+// POST: preview, scan, or import
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -103,7 +192,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const entityId = formData.get('entityId') as string | null
-    const mode = formData.get('mode') as string | null // "scan" or "import"
+    const mode = formData.get('mode') as string | null // "preview", "scan", or "import"
+    const mappingJson = formData.get('mapping') as string | null
 
     if (!file) return NextResponse.json({ error: 'file is required' }, { status: 400 })
     if (!entityId) return NextResponse.json({ error: 'entityId is required' }, { status: 400 })
@@ -113,6 +203,35 @@ export async function POST(request: NextRequest) {
 
     if (data.length === 0) {
       return NextResponse.json({ error: 'Excel file is empty' }, { status: 400 })
+    }
+
+    // === PREVIEW MODE ===
+    if (mode === 'preview') {
+      const columns = Object.keys(data[0])
+      const preview = data.slice(0, 5).map(row => {
+        const obj: Record<string, unknown> = {}
+        for (const col of columns) {
+          obj[col] = row[col] ?? ''
+        }
+        return obj
+      })
+      const suggestedMapping = suggestMapping(columns)
+
+      return NextResponse.json({
+        columns,
+        preview,
+        suggestedMapping,
+      })
+    }
+
+    // For scan and import, we need the mapping
+    let mapping: ColumnMapping = {}
+    if (mappingJson) {
+      try {
+        mapping = JSON.parse(mappingJson) as ColumnMapping
+      } catch {
+        return NextResponse.json({ error: 'Invalid mapping JSON' }, { status: 400 })
+      }
     }
 
     // Fetch existing records
@@ -132,14 +251,14 @@ export async function POST(request: NextRequest) {
       const unknownSalesReps = new Map<string, string>()
 
       for (const row of data) {
-        const articleCode = String(findColumnValue(row, COLUMN_MAPS.articleCode) ?? '')
-        const articleName = String(findColumnValue(row, COLUMN_MAPS.articleName) ?? articleCode)
-        const customerCode = findColumnValue(row, COLUMN_MAPS.customerCode)
-        const customerName = String(findColumnValue(row, COLUMN_MAPS.customerName) ?? '')
-        const customerTypeRaw = findColumnValue(row, COLUMN_MAPS.customerType)
+        const articleCode = String(getMappedValue(row, mapping, 'articleCode') ?? '')
+        const articleName = String(getMappedValue(row, mapping, 'articleName') ?? articleCode)
+        const customerCode = getMappedValue(row, mapping, 'customerCode')
+        const customerName = String(getMappedValue(row, mapping, 'customerName') ?? '')
+        const customerTypeRaw = getMappedValue(row, mapping, 'customerType')
         const customerType = customerTypeRaw ? String(customerTypeRaw) : ''
-        const salesRepCode = findColumnValue(row, COLUMN_MAPS.salesRepCode)
-        const salesRepName = String(findColumnValue(row, COLUMN_MAPS.salesRepName) ?? '')
+        const salesRepCode = getMappedValue(row, mapping, 'salesRepCode')
+        const salesRepName = String(getMappedValue(row, mapping, 'salesRepName') ?? '')
 
         if (articleCode && !articleByCode.has(articleCode)) {
           unknownArticles.set(articleCode, articleName)
@@ -172,20 +291,20 @@ export async function POST(request: NextRequest) {
 
       try {
         // Derive period: try explicit period column first, then date column
-        let period = String(findColumnValue(row, COLUMN_MAPS.period) ?? '')
+        let period = String(getMappedValue(row, mapping, 'period') ?? '')
         if (!period) {
-          const dateVal = findColumnValue(row, COLUMN_MAPS.date)
+          const dateVal = getMappedValue(row, mapping, 'date')
           if (dateVal) {
             period = dateToPeriod(dateVal)
           }
         }
-        const articleCode = String(findColumnValue(row, COLUMN_MAPS.articleCode) ?? '')
-        const customerCode = findColumnValue(row, COLUMN_MAPS.customerCode)
-        const salesRepCode = findColumnValue(row, COLUMN_MAPS.salesRepCode)
-        const revenueRaw = findColumnValue(row, COLUMN_MAPS.revenue)
-        const quantityRaw = findColumnValue(row, COLUMN_MAPS.quantity)
-        const unitPriceRaw = findColumnValue(row, COLUMN_MAPS.unitPrice)
-        const variableCostRaw = findColumnValue(row, COLUMN_MAPS.variableCost)
+        const articleCode = String(getMappedValue(row, mapping, 'articleCode') ?? '')
+        const customerCode = getMappedValue(row, mapping, 'customerCode')
+        const salesRepCode = getMappedValue(row, mapping, 'salesRepCode')
+        const revenueRaw = getMappedValue(row, mapping, 'revenue')
+        const quantityRaw = getMappedValue(row, mapping, 'quantity')
+        const unitPriceRaw = getMappedValue(row, mapping, 'unitPrice')
+        const variableCostRaw = getMappedValue(row, mapping, 'variableCost')
 
         if (!period) { errors.push(`Ligne ${rowNum}: ni période ni date trouvée`); skipped++; continue }
         if (!articleCode) { errors.push(`Ligne ${rowNum}: code article manquant`); skipped++; continue }
