@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,17 +30,9 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
-import { Loader2, Users, Search, Plus, ChevronDown, ChevronRight } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts"
+import { Loader2, Users, Search, Plus, ExternalLink } from "lucide-react"
 
 type Customer = {
   id: string
@@ -48,9 +41,9 @@ type Customer = {
   type: string
   region: string
   totalRevenue: number
+  totalQty: number
   totalMargin: number
-  articles?: { name: string; revenue: number; margin: number }[]
-  monthlyTrend?: { month: string; revenue: number }[]
+  articleCount: number
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -72,13 +65,12 @@ type FormData = {
 const emptyForm: FormData = { code: "", name: "", type: "DIRECT", region: "" }
 
 export default function CustomersPage() {
+  const router = useRouter()
   const { selectedEntityId } = useAppStore()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("Tous")
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -103,36 +95,6 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers()
   }, [fetchCustomers])
-
-  const handleExpand = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null)
-      return
-    }
-    setExpandedId(id)
-    setDetailLoading(true)
-    try {
-      const res = await fetch(`/api/customers/${id}`)
-      if (res.ok) {
-        const detail = await res.json()
-        setCustomers((prev) =>
-          prev.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  articles: detail.articles || [],
-                  monthlyTrend: detail.monthlyTrend || [],
-                }
-              : c
-          )
-        )
-      }
-    } catch {
-      // silently handle
-    } finally {
-      setDetailLoading(false)
-    }
-  }
 
   const handleAdd = async () => {
     setSaving(true)
@@ -163,6 +125,9 @@ export default function CustomersPage() {
     return matchSearch && matchType
   })
 
+  const totalRevenue = filtered.reduce((s, c) => s + (c.totalRevenue || 0), 0)
+  const totalMargin = filtered.reduce((s, c) => s + (c.totalMargin || 0), 0)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -181,6 +146,30 @@ export default function CustomersPage() {
           <Plus className="mr-2 h-4 w-4" />
           Ajouter un client
         </Button>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Clients</p>
+            <p className="text-2xl font-bold">{filtered.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">CA Total</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Marge Totale</p>
+            <p className={cn("text-2xl font-bold", totalMargin >= 0 ? "text-emerald-600" : "text-red-600")}>
+              {formatCurrency(totalMargin)}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -228,151 +217,66 @@ export default function CustomersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
                   <TableHead>Code</TableHead>
                   <TableHead>Nom</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Region</TableHead>
                   <TableHead className="text-right">CA Total</TableHead>
+                  <TableHead className="text-right">Qte totale</TableHead>
+                  <TableHead className="text-right">Articles</TableHead>
                   <TableHead className="text-right">Marge</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((customer) => (
-                  <>
-                    <TableRow
-                      key={customer.id}
-                      className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => handleExpand(customer.id)}
-                    >
-                      <TableCell>
-                        {expandedId === customer.id ? (
-                          <ChevronDown className="h-4 w-4 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                  <TableRow
+                    key={customer.id}
+                    className="cursor-pointer hover:bg-slate-50"
+                    onClick={() => router.push(`/customers/${customer.id}`)}
+                  >
+                    <TableCell className="font-mono text-sm">
+                      {customer.code}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {customer.name}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "text-xs",
+                          TYPE_COLORS[customer.type] || "bg-slate-100 text-slate-800"
                         )}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {customer.code}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {customer.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            "text-xs",
-                            TYPE_COLORS[customer.type] || "bg-slate-100 text-slate-800"
-                          )}
-                        >
-                          {customer.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{customer.region}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(customer.totalRevenue)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={cn(
-                            "font-medium",
-                            customer.totalMargin >= 0
-                              ? "text-emerald-600"
-                              : "text-red-600"
-                          )}
-                        >
-                          {formatCurrency(customer.totalMargin)}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                    {expandedId === customer.id && (
-                      <TableRow key={`${customer.id}-detail`}>
-                        <TableCell colSpan={7} className="bg-slate-50 p-4">
-                          {detailLoading ? (
-                            <div className="flex h-[100px] items-center justify-center">
-                              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                            </div>
-                          ) : (
-                            <div className="grid gap-6 lg:grid-cols-2">
-                              {/* Revenue by article */}
-                              <div>
-                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  CA par article
-                                </h4>
-                                {customer.articles &&
-                                customer.articles.length > 0 ? (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Article</TableHead>
-                                        <TableHead className="text-right">
-                                          CA
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                          Marge
-                                        </TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {customer.articles.map((a, i) => (
-                                        <TableRow key={i}>
-                                          <TableCell className="text-sm">
-                                            {a.name}
-                                          </TableCell>
-                                          <TableCell className="text-right text-sm">
-                                            {formatCurrency(a.revenue)}
-                                          </TableCell>
-                                          <TableCell className="text-right text-sm">
-                                            {formatCurrency(a.margin)}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                ) : (
-                                  <p className="text-sm text-slate-400">
-                                    Aucune donnee
-                                  </p>
-                                )}
-                              </div>
-                              {/* Monthly trend */}
-                              <div>
-                                <h4 className="mb-2 text-sm font-semibold text-slate-700">
-                                  Tendance mensuelle
-                                </h4>
-                                {customer.monthlyTrend &&
-                                customer.monthlyTrend.length > 0 ? (
-                                  <ResponsiveContainer width="100%" height={180}>
-                                    <BarChart data={customer.monthlyTrend}>
-                                      <XAxis
-                                        dataKey="month"
-                                        tick={{ fontSize: 11 }}
-                                      />
-                                      <YAxis tick={{ fontSize: 11 }} />
-                                      <Tooltip
-                                        formatter={(v) =>
-                                          formatCurrency(Number(v))
-                                        }
-                                      />
-                                      <Bar
-                                        dataKey="revenue"
-                                        fill="#3b82f6"
-                                        radius={[4, 4, 0, 0]}
-                                      />
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                ) : (
-                                  <p className="text-sm text-slate-400">
-                                    Aucune donnee
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
+                      >
+                        {customer.type || "N/A"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{customer.region || "-"}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(customer.totalRevenue || 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(customer.totalQty || 0, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {customer.articleCount || 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span
+                        className={cn(
+                          "font-medium",
+                          (customer.totalMargin || 0) >= 0
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                        )}
+                      >
+                        {formatCurrency(customer.totalMargin || 0)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <ExternalLink className="h-4 w-4 text-slate-400" />
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>

@@ -29,7 +29,31 @@ export async function GET(request: NextRequest) {
       orderBy: { lastName: 'asc' },
     })
 
-    return NextResponse.json(salesReps)
+    const repsWithSales = await Promise.all(
+      salesReps.map(async (r) => {
+        const agg = await prisma.articleSalesHistory.aggregate({
+          where: { salesRepId: r.id },
+          _sum: { revenue: true, qtySold: true },
+        })
+        const clientGroups = await prisma.articleSalesHistory.groupBy({
+          by: ['customerId'],
+          where: { salesRepId: r.id, customerId: { not: null } },
+        })
+        const articleGroups = await prisma.articleSalesHistory.groupBy({
+          by: ['articleId'],
+          where: { salesRepId: r.id },
+        })
+        return {
+          ...r,
+          totalRevenue: agg._sum.revenue || 0,
+          totalQty: agg._sum.qtySold || 0,
+          clientCount: clientGroups.length,
+          articleCount: articleGroups.length,
+        }
+      })
+    )
+
+    return NextResponse.json(repsWithSales)
   } catch (error) {
     console.error('Get sales reps error:', error)
     return NextResponse.json(
