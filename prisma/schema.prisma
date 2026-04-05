@@ -74,7 +74,7 @@ model ProductCategory {
 
 model Product {
   id           String          @id @default(cuid())
-  code         String?         @unique
+  code         String?
   name         String
   categoryId   String
   category     ProductCategory @relation(fields: [categoryId], references: [id])
