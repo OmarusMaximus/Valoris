@@ -43,7 +43,13 @@ import {
   Users,
   UserCheck,
   Settings2,
+  RotateCcw,
+  Trash2,
+  History,
+  Sparkles,
+  Copy,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type EntityOption = { id: string; code: string; name: string }
 
@@ -64,11 +70,31 @@ type ScanResult = {
 type ImportResult = {
   imported: number
   skipped: number
+  duplicateCount: number
+  batchId: string | null
   warnings: string[]
   errors: string[]
 }
 
+type CleanupResult = {
+  success: boolean
+  summary: Record<string, number>
+  totalChanges: number
+}
+
 type ImportStep = 1 | 2 | 3 | 4
+
+type ImportBatchRecord = {
+  id: string
+  entityId: string | null
+  fileName: string
+  rowCount: number
+  imported: number
+  skipped: number
+  status: string
+  createdAt: string
+  recordCount: number
+}
 
 type TargetField =
   | "date"
@@ -85,6 +111,7 @@ type TargetField =
   | "quantity"
   | "unitPrice"
   | "variableCost"
+  | "salesCurrency"
 
 const TARGET_FIELDS: Array<{
   key: TargetField
@@ -105,6 +132,7 @@ const TARGET_FIELDS: Array<{
   { key: "quantity", label: "Quantite", required: true },
   { key: "unitPrice", label: "Prix unitaire", required: false },
   { key: "variableCost", label: "Cout variable", required: false },
+  { key: "salesCurrency", label: "Devise de vente", required: false },
 ]
 
 const UNMAPPED = "__unmapped__"
@@ -144,6 +172,20 @@ export default function SalesImportPage() {
   // Step 4 -> import result
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+
+  // Import history
+  const [importHistory, setImportHistory] = useState<ImportBatchRecord[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Rollback / clear
+  const [rollingBack, setRollingBack] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
+
+  // Cleanup
+  const [cleanupRules, setCleanupRules] = useState<Set<string>>(new Set())
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null)
 
   useEffect(() => {
     fetch("/api/entities")
