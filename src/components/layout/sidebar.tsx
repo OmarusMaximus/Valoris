@@ -25,6 +25,7 @@ import {
   UserCheck,
   FileUp,
   Trophy,
+  Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/setup", icon: Settings2, labelKey: "setup" },
   { href: "/settings", icon: Settings, labelKey: "settings" },
   { href: "/league-tables", icon: Trophy, labelKey: "leagueTables" },
+  { href: "/smart-pricing", icon: Zap, labelKey: "smartPricing" },
   { href: "/onboarding", icon: BookOpen, labelKey: "onboarding" },
 ]
 
@@ -69,6 +71,7 @@ const labels: Record<string, string> = {
   setup: "Configuration initiale",
   settings: "Paramètres",
   leagueTables: "League Tables",
+  smartPricing: "Smart Pricing",
   onboarding: "Guide de démarrage",
 }
 
