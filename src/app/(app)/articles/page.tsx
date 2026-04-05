@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { Suspense, useEffect, useState, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -64,7 +64,7 @@ const FORMULATION_LABELS: Record<string, string> = {
   autre: "Autre",
 }
 
-export default function ArticlesPage() {
+function ArticlesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialProductId = searchParams.get("productId") || ""
@@ -437,5 +437,13 @@ export default function ArticlesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function ArticlesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center p-8">Chargement...</div>}>
+      <ArticlesPageContent />
+    </Suspense>
   )
 }

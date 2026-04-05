@@ -841,7 +841,7 @@ function SimulatorTab() {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value) => formatCurrency(Number(value))}
                     />
                     <Legend />
                     <Bar dataKey="margin" name="Marge" radius={[4, 4, 0, 0]}>
