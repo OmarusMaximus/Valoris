@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn, formatCurrency, formatNumber, getPeriodLabel } from "@/lib/utils"
+import { useCurrency } from "@/lib/use-currency"
 import {
   ArrowLeft,
   Package,
@@ -167,6 +168,7 @@ export default function ArticleDetailPage() {
   const params = useParams()
   const articleId = params.id as string
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { format: fmtCurrency } = useCurrency()
 
   const [article, setArticle] = useState<Article | null>(null)
   const [salesHistory, setSalesHistory] = useState<SalesHistoryEntry[]>([])
@@ -273,7 +275,7 @@ export default function ArticleDetailPage() {
     setUploading(true)
     try {
       const formData = new FormData()
-      formData.append("photo", file)
+      formData.append("file", file)
       const res = await fetch(`/api/articles/${articleId}/photo`, {
         method: "POST",
         body: formData,
@@ -612,7 +614,7 @@ export default function ArticleDetailPage() {
                           Prix catalogue (depart usine)
                         </p>
                         <p className="mt-1 text-2xl font-bold text-slate-900">
-                          {formatCurrency(article.catalogPrice, getArticleCurrency())}
+                          {fmtCurrency(article.catalogPrice, getArticleCurrency())}
                         </p>
                       </div>
                       <div className="text-right">
@@ -620,7 +622,7 @@ export default function ArticleDetailPage() {
                           Cout standard
                         </p>
                         <p className="mt-1 text-sm font-medium text-slate-600">
-                          {formatCurrency(article.standardCost, getArticleCurrency())}
+                          {fmtCurrency(article.standardCost, getArticleCurrency())}
                         </p>
                       </div>
                     </div>
@@ -868,7 +870,7 @@ export default function ArticleDetailPage() {
                 <CardTitle className="text-base">Evolution du CA</CardTitle>
                 {salesHistory.length > 0 && (
                   <span className="text-sm font-medium text-slate-500">
-                    Total: {formatCurrency(totalRevenue, getArticleCurrency())}
+                    Total: {fmtCurrency(totalRevenue, getArticleCurrency())}
                   </span>
                 )}
               </div>
@@ -895,7 +897,7 @@ export default function ArticleDetailPage() {
                       tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
-                      formatter={(value) => [formatCurrency(Number(value), getArticleCurrency()), "CA"]}
+                      formatter={(value) => [fmtCurrency(Number(value), getArticleCurrency()), "CA"]}
                       labelFormatter={(label) => getPeriodLabel(String(label))}
                       contentStyle={{
                         borderRadius: "8px",
@@ -945,7 +947,7 @@ export default function ArticleDetailPage() {
                     />
                     <Tooltip
                       formatter={(value, name) => [
-                        formatCurrency(Number(value), getArticleCurrency()),
+                        fmtCurrency(Number(value), getArticleCurrency()),
                         String(name) === "avgPrice"
                           ? "Prix moyen de vente"
                           : "Cout variable unitaire",
@@ -1036,13 +1038,13 @@ export default function ArticleDetailPage() {
                               {formatNumber(entry.qtySold)}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.revenue, getArticleCurrency())}
+                              {fmtCurrency(entry.revenue, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.avgPrice, getArticleCurrency())}
+                              {fmtCurrency(entry.avgPrice, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {formatCurrency(entry.variableCost, getArticleCurrency())}
+                              {fmtCurrency(entry.variableCost, getArticleCurrency())}
                             </TableCell>
                             <TableCell className="text-right">
                               <span
@@ -1053,7 +1055,7 @@ export default function ArticleDetailPage() {
                                     : "text-red-600"
                                 )}
                               >
-                                {formatCurrency(entryMargin, getArticleCurrency())}{" "}
+                                {fmtCurrency(entryMargin, getArticleCurrency())}{" "}
                                 <span className="text-xs">
                                   ({marginPercent >= 0 ? "+" : ""}
                                   {marginPercent.toFixed(1)}%)

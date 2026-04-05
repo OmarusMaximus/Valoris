@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/table"
 import { cn, formatNumber, formatPercent, formatCurrency } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
+import { useCurrency } from "@/lib/use-currency"
 import {
   ArrowLeft,
   Plus,
@@ -175,19 +176,13 @@ export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
   const productId = params.id as string
-  const { displayCurrency } = useAppStore()
+  const { format: formatWithConversion } = useCurrency()
 
   const [product, setProduct] = useState<Product | null>(null)
 
-  // Resolve currency: displayCurrency from store, or product entity currency, or EUR
-  const getCurrency = useCallback(() => {
-    if (displayCurrency) return displayCurrency
-    return product?.entity?.currency || 'EUR'
-  }, [displayCurrency, product])
-
   const fmtCurrency = useCallback((amount: number) => {
-    return formatCurrency(amount, getCurrency())
-  }, [getCurrency])
+    return formatWithConversion(amount, product?.entity?.currency || 'EUR')
+  }, [formatWithConversion, product])
   const [bomItems, setBomItems] = useState<BomItem[]>([])
   const [availableComponents, setAvailableComponents] = useState<Product[]>([])
   const [articles, setArticles] = useState<ArticleItem[]>([])
