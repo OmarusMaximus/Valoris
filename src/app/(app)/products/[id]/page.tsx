@@ -177,6 +177,8 @@ export default function ProductDetailPage() {
   const productId = params.id as string
   const { displayCurrency } = useAppStore()
 
+  const [product, setProduct] = useState<Product | null>(null)
+
   // Resolve currency: displayCurrency from store, or product entity currency, or EUR
   const getCurrency = useCallback(() => {
     if (displayCurrency) return displayCurrency
@@ -186,8 +188,6 @@ export default function ProductDetailPage() {
   const fmtCurrency = useCallback((amount: number) => {
     return formatCurrency(amount, getCurrency())
   }, [getCurrency])
-
-  const [product, setProduct] = useState<Product | null>(null)
   const [bomItems, setBomItems] = useState<BomItem[]>([])
   const [availableComponents, setAvailableComponents] = useState<Product[]>([])
   const [articles, setArticles] = useState<ArticleItem[]>([])
