@@ -210,13 +210,13 @@ export default function SalesImportPage() {
   }, [selectedFile, entityId])
 
   const toggleArticle = (code: string) => {
-    setSelectedArticles(prev => { const n = new Set(prev); n.has(code) ? n.delete(code) : n.add(code); return n })
+    setSelectedArticles(prev => { const n = new Set(prev); if (n.has(code)) { n.delete(code) } else { n.add(code) } return n })
   }
   const toggleCustomer = (code: string) => {
-    setSelectedCustomers(prev => { const n = new Set(prev); n.has(code) ? n.delete(code) : n.add(code); return n })
+    setSelectedCustomers(prev => { const n = new Set(prev); if (n.has(code)) { n.delete(code) } else { n.add(code) } return n })
   }
   const toggleRep = (code: string) => {
-    setSelectedReps(prev => { const n = new Set(prev); n.has(code) ? n.delete(code) : n.add(code); return n })
+    setSelectedReps(prev => { const n = new Set(prev); if (n.has(code)) { n.delete(code) } else { n.add(code) } return n })
   }
 
   const reset = () => {
