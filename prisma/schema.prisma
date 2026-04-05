@@ -117,6 +117,18 @@ model Article {
   updatedAt       DateTime @updatedAt
 
   salesHistory    ArticleSalesHistory[]
+  priceHistory    ArticlePriceHistory[]
+}
+
+model ArticlePriceHistory {
+  id           String    @id @default(cuid())
+  articleId    String
+  article      Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  catalogPrice Float
+  startDate    DateTime
+  endDate      DateTime?  // null = current price
+  note         String?
+  createdAt    DateTime  @default(now())
 }
 
 model ArticleSalesHistory {

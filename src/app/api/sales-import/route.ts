@@ -284,6 +284,9 @@ export async function POST(request: NextRequest) {
     let imported = 0
     let skipped = 0
     const errors: string[] = []
+    const skippedArticles = new Map<string, number>() // code → count
+    const skippedCustomers = new Map<string, number>()
+    const skippedReps = new Map<string, number>()
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i]
@@ -310,13 +313,17 @@ export async function POST(request: NextRequest) {
         if (!articleCode) { errors.push(`Ligne ${rowNum}: code article manquant`); skipped++; continue }
 
         const articleId = articleByCode.get(articleCode)
-        if (!articleId) { errors.push(`Ligne ${rowNum}: article '${articleCode}' non trouvé`); skipped++; continue }
+        if (!articleId) {
+          skippedArticles.set(articleCode, (skippedArticles.get(articleCode) || 0) + 1)
+          skipped++
+          continue
+        }
 
         let customerId: string | null = null
         if (customerCode) {
           customerId = customerByCode.get(String(customerCode)) ?? null
           if (!customerId) {
-            errors.push(`Ligne ${rowNum}: client '${customerCode}' non trouvé, importé sans client`)
+            skippedCustomers.set(String(customerCode), (skippedCustomers.get(String(customerCode)) || 0) + 1)
           }
         }
 
@@ -324,7 +331,7 @@ export async function POST(request: NextRequest) {
         if (salesRepCode) {
           salesRepId = salesRepByCode.get(String(salesRepCode)) ?? null
           if (!salesRepId) {
-            errors.push(`Ligne ${rowNum}: commercial '${salesRepCode}' non trouvé, importé sans commercial`)
+            skippedReps.set(String(salesRepCode), (skippedReps.get(String(salesRepCode)) || 0) + 1)
           }
         }
 
@@ -361,7 +368,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ imported, skipped, errors: errors.slice(0, 50), total: data.length })
+    // Build grouped warnings for skipped items
+    const warnings: string[] = []
+    for (const [code, count] of Array.from(skippedArticles.entries())) {
+      warnings.push(`Article '${code}' ignoré (${count} ligne${count > 1 ? 's' : ''})`)
+    }
+    for (const [code, count] of Array.from(skippedCustomers.entries())) {
+      warnings.push(`Client '${code}' non trouvé — ${count} ligne${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''} sans client`)
+    }
+    for (const [code, count] of Array.from(skippedReps.entries())) {
+      warnings.push(`Commercial '${code}' non trouvé — ${count} ligne${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''} sans commercial`)
+    }
+
+    return NextResponse.json({ imported, skipped, warnings, errors: errors.slice(0, 50), total: data.length })
   } catch (error) {
     console.error('Sales import error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

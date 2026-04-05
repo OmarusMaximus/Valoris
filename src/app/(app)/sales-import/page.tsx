@@ -64,6 +64,7 @@ type ScanResult = {
 type ImportResult = {
   imported: number
   skipped: number
+  warnings: string[]
   errors: string[]
 }
 
@@ -342,6 +343,7 @@ export default function SalesImportPage() {
         setImportResult({
           imported: data.imported || 0,
           skipped: data.skipped || 0,
+          warnings: data.warnings || [],
           errors: data.errors || [],
         })
       } else {
@@ -349,6 +351,7 @@ export default function SalesImportPage() {
         setImportResult({
           imported: 0,
           skipped: 0,
+          warnings: [],
           errors: [err.error || `Erreur serveur (${res.status})`],
         })
       }
@@ -357,6 +360,7 @@ export default function SalesImportPage() {
       setImportResult({
         imported: 0,
         skipped: 0,
+        warnings: [],
         errors: ["Erreur de connexion"],
       })
       setStep(4)
@@ -1151,16 +1155,26 @@ export default function SalesImportPage() {
                   </div>
                 </div>
               </div>
+              {importResult.warnings.length > 0 && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 max-h-48 overflow-y-auto">
+                  <h4 className="mb-2 text-sm font-semibold text-amber-800">
+                    Elements ignores (choix utilisateur)
+                  </h4>
+                  <ul className="space-y-1">
+                    {importResult.warnings.map((w, i) => (
+                      <li key={i} className="text-sm text-amber-700">{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {importResult.errors.length > 0 && (
                 <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 max-h-48 overflow-y-auto">
                   <h4 className="mb-2 text-sm font-semibold text-red-800">
-                    Detail des erreurs
+                    Erreurs techniques
                   </h4>
                   <ul className="space-y-1">
                     {importResult.errors.map((err, i) => (
-                      <li key={i} className="text-sm text-red-700">
-                        {err}
-                      </li>
+                      <li key={i} className="text-sm text-red-700">{err}</li>
                     ))}
                   </ul>
                 </div>

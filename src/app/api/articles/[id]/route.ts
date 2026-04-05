@@ -18,7 +18,7 @@ export async function GET(
       where: { id },
       include: {
         product: {
-          include: { category: true },
+          include: { category: true, entity: true },
         },
         salesHistory: {
           orderBy: { period: 'desc' },

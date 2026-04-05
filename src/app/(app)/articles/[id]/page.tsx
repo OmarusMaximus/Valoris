@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -56,8 +63,10 @@ type Article = {
     id: string
     name: string
     code: string
-    family: string
+    family: string | null
+    formulation?: string
     origin?: string
+    entity?: { id: string; currency: string }
   }
 }
 
@@ -184,7 +193,7 @@ export default function ArticleDetailPage() {
     setSaving(true)
     try {
       const res = await fetch(`/api/articles/${articleId}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           stockUnit: editForm.stockUnit,
@@ -430,21 +439,29 @@ export default function ArticleDetailPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="text-xs">Unite de stock</Label>
-                    <Input
-                      value={editForm.stockUnit}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, stockUnit: e.target.value })
-                      }
-                    />
+                    <Select value={editForm.stockUnit} onValueChange={(v) => setEditForm({ ...editForm, stockUnit: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UNIT">Unité</SelectItem>
+                        <SelectItem value="KG">KG</SelectItem>
+                        <SelectItem value="L">Litre</SelectItem>
+                        <SelectItem value="CARTON">Carton</SelectItem>
+                        <SelectItem value="PALETTE">Palette</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Unite de vente</Label>
-                    <Input
-                      value={editForm.salesUnit}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, salesUnit: e.target.value })
-                      }
-                    />
+                    <Select value={editForm.salesUnit} onValueChange={(v) => setEditForm({ ...editForm, salesUnit: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UNIT">Unité</SelectItem>
+                        <SelectItem value="KG">KG</SelectItem>
+                        <SelectItem value="L">Litre</SelectItem>
+                        <SelectItem value="CARTON">Carton</SelectItem>
+                        <SelectItem value="PALETTE">Palette</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Contenu (quantite)</Label>
@@ -459,12 +476,16 @@ export default function ArticleDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Unite contenu</Label>
-                    <Input
-                      value={editForm.contentUnit}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, contentUnit: e.target.value })
-                      }
-                    />
+                    <Select value={editForm.contentUnit} onValueChange={(v) => setEditForm({ ...editForm, contentUnit: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="L">Litre</SelectItem>
+                        <SelectItem value="KG">KG</SelectItem>
+                        <SelectItem value="UNIT">Unité</SelectItem>
+                        <SelectItem value="ML">ML</SelectItem>
+                        <SelectItem value="G">Gramme</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Prix catalogue</Label>
