@@ -112,11 +112,18 @@ async function main() {
 
     const productMap: Record<string, string> = {};
     for (const p of products) {
-      const product = await tx.product.upsert({
-        where: { code: p.code },
-        update: { name: p.name, categoryId: p.categoryId, family: p.family, formulation: p.formulation, origin: p.origin, unit: p.unit, entityId: entityMap.FR },
-        create: { ...p, entityId: entityMap.FR },
-      });
+      const existing = await tx.product.findFirst({ where: { code: p.code } });
+      let product;
+      if (existing) {
+        product = await tx.product.update({
+          where: { id: existing.id },
+          data: { name: p.name, categoryId: p.categoryId, family: p.family, formulation: p.formulation, origin: p.origin, unit: p.unit, entityId: entityMap.FR },
+        });
+      } else {
+        product = await tx.product.create({
+          data: { ...p, entityId: entityMap.FR },
+        });
+      }
       productMap[p.code] = product.id;
     }
     console.log(`  ✓ ${products.length} products created`);
