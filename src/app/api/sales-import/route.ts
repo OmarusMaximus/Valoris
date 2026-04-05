@@ -306,6 +306,7 @@ export async function POST(request: NextRequest) {
             period = dateToPeriod(dateVal)
           }
         }
+        const rowEntityCode = String(getMappedValue(row, mapping, 'entityCode') ?? '')
         const articleCode = String(getMappedValue(row, mapping, 'articleCode') ?? '')
         const customerCode = getMappedValue(row, mapping, 'customerCode')
         const salesRepCode = getMappedValue(row, mapping, 'salesRepCode')
@@ -322,6 +323,17 @@ export async function POST(request: NextRequest) {
           skippedArticles.set(articleCode, (skippedArticles.get(articleCode) || 0) + 1)
           skipped++
           continue
+        }
+
+        // Auto-assign entity to article if entity code is in the file
+        if (rowEntityCode) {
+          const rowEntityId = entityByCode.get(rowEntityCode)
+          if (rowEntityId) {
+            await prisma.article.updateMany({
+              where: { id: articleId, entityId: null },
+              data: { entityId: rowEntityId },
+            })
+          }
         }
 
         let customerId: string | null = null
