@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
             create: {
               code: cust.code,
               name: cust.name || cust.code,
-              type: cust.type || 'DIRECT',
+              type: cust.type || null,
               entityId,
             },
           })

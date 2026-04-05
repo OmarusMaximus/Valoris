@@ -331,12 +331,13 @@ export default function SalesImportPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
               {[
-                ["Période / Period", "YYYY-MM (ex: 2026-03)"],
+                ["Date", "Date de vente (ex: 15/03/2026, 2026-03-15)"],
+                ["Période / Period", "Alternative a la date : YYYY-MM (ex: 2026-03)"],
                 ["Code Article", "Code unique de l'article"],
                 ["Nom Article", "Nom (pour les nouveaux articles)"],
-                ["Code Client", "Code unique du client (optionnel)"],
+                ["Code Client", "Code du client (optionnel)"],
                 ["Nom Client", "Nom (pour les nouveaux clients)"],
-                ["Type Client", "COOPERATIVE / DISTRIBUTEUR / DIRECT / EXPORT"],
+                ["Type Client", "Optionnel : COOPERATIVE / DISTRIBUTEUR / DIRECT / EXPORT"],
                 ["Code Commercial", "Code du commercial (optionnel)"],
                 ["Nom Commercial", "Nom (pour les nouveaux commerciaux)"],
                 ["CA / Revenue", "Chiffre d'affaires"],
@@ -484,9 +485,10 @@ export default function SalesImportPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Select value={customerTypes[cust.code] || "DIRECT"} onValueChange={v => setCustomerTypes(prev => ({ ...prev, [cust.code]: v }))}>
+                          <Select value={customerTypes[cust.code] || ""} onValueChange={v => setCustomerTypes(prev => ({ ...prev, [cust.code]: v }))}>
                             <SelectTrigger className="h-8 text-sm w-[140px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">Non specifie</SelectItem>
                               <SelectItem value="COOPERATIVE">Cooperative</SelectItem>
                               <SelectItem value="DISTRIBUTEUR">Distributeur</SelectItem>
                               <SelectItem value="DIRECT">Direct</SelectItem>

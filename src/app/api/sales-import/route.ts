@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx'
 
 const COLUMN_MAPS = {
   period: ['Period', 'Période', 'Mois', 'period', 'période', 'mois', 'PERIOD', 'PERIODE', 'MOIS'],
+  date: ['Date', 'date', 'DATE', 'Invoice Date', 'Date facture', 'date_facture', 'invoice_date', 'DATE_FACTURE'],
   articleCode: ['Article Code', 'Code Article', 'article_code', 'code_article', 'ArticleCode', 'CodeArticle', 'ARTICLE_CODE', 'CODE_ARTICLE'],
   articleName: ['Article Name', 'Nom Article', 'article_name', 'nom_article', 'ArticleName', 'NomArticle', 'ARTICLE_NAME', 'NOM_ARTICLE'],
   productCode: ['Product Code', 'Code Produit', 'product_code', 'code_produit', 'ProductCode', 'CodeProduit', 'PRODUCT_CODE', 'CODE_PRODUIT'],
@@ -26,6 +27,59 @@ function findColumnValue(row: Record<string, unknown>, candidates: string[]): un
     }
   }
   return undefined
+}
+
+/**
+ * Convert a date value (from Excel) to YYYY-MM period.
+ * Handles: "2026-03-15", "15/03/2026", Excel serial numbers, Date objects.
+ */
+function dateToPeriod(value: unknown): string {
+  if (!value) return ''
+  const str = String(value).trim()
+
+  // Already a period format (YYYY-MM)
+  if (/^\d{4}-\d{2}$/.test(str)) return str
+
+  // Try parsing as date string
+  let d: Date | null = null
+
+  // Excel serial number (e.g., 46066)
+  if (/^\d{4,5}(\.\d+)?$/.test(str)) {
+    const serial = parseFloat(str)
+    // Excel epoch is 1900-01-01, but has a leap year bug (+1)
+    d = new Date(Date.UTC(1899, 11, 30 + Math.floor(serial)))
+  }
+
+  // ISO format: 2026-03-15
+  if (!d && /^\d{4}-\d{2}-\d{2}/.test(str)) {
+    d = new Date(str)
+  }
+
+  // French format: 15/03/2026 or 15-03-2026
+  if (!d) {
+    const match = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+    if (match) {
+      d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]))
+    }
+  }
+
+  // US format: 03/15/2026
+  if (!d) {
+    const match = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+    if (match) {
+      d = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]))
+    }
+  }
+
+  // Fallback: try native Date parsing
+  if (!d || isNaN(d.getTime())) {
+    d = new Date(str)
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+  return ''
 }
 
 function parseExcelData(buffer: Buffer) {
@@ -82,7 +136,8 @@ export async function POST(request: NextRequest) {
         const articleName = String(findColumnValue(row, COLUMN_MAPS.articleName) ?? articleCode)
         const customerCode = findColumnValue(row, COLUMN_MAPS.customerCode)
         const customerName = String(findColumnValue(row, COLUMN_MAPS.customerName) ?? '')
-        const customerType = String(findColumnValue(row, COLUMN_MAPS.customerType) ?? 'DIRECT')
+        const customerTypeRaw = findColumnValue(row, COLUMN_MAPS.customerType)
+        const customerType = customerTypeRaw ? String(customerTypeRaw) : ''
         const salesRepCode = findColumnValue(row, COLUMN_MAPS.salesRepCode)
         const salesRepName = String(findColumnValue(row, COLUMN_MAPS.salesRepName) ?? '')
 
@@ -116,7 +171,14 @@ export async function POST(request: NextRequest) {
       const rowNum = i + 2
 
       try {
-        const period = String(findColumnValue(row, COLUMN_MAPS.period) ?? '')
+        // Derive period: try explicit period column first, then date column
+        let period = String(findColumnValue(row, COLUMN_MAPS.period) ?? '')
+        if (!period) {
+          const dateVal = findColumnValue(row, COLUMN_MAPS.date)
+          if (dateVal) {
+            period = dateToPeriod(dateVal)
+          }
+        }
         const articleCode = String(findColumnValue(row, COLUMN_MAPS.articleCode) ?? '')
         const customerCode = findColumnValue(row, COLUMN_MAPS.customerCode)
         const salesRepCode = findColumnValue(row, COLUMN_MAPS.salesRepCode)
@@ -125,7 +187,7 @@ export async function POST(request: NextRequest) {
         const unitPriceRaw = findColumnValue(row, COLUMN_MAPS.unitPrice)
         const variableCostRaw = findColumnValue(row, COLUMN_MAPS.variableCost)
 
-        if (!period) { errors.push(`Ligne ${rowNum}: période manquante`); skipped++; continue }
+        if (!period) { errors.push(`Ligne ${rowNum}: ni période ni date trouvée`); skipped++; continue }
         if (!articleCode) { errors.push(`Ligne ${rowNum}: code article manquant`); skipped++; continue }
 
         const articleId = articleByCode.get(articleCode)
