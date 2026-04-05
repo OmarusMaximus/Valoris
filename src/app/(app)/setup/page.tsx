@@ -453,6 +453,7 @@ export default function SetupPage() {
               <TableHead>Code</TableHead>
               <TableHead>Nom</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -461,6 +462,16 @@ export default function SetupPage() {
                 <TableCell><Badge variant="outline">{c.code}</Badge></TableCell>
                 <TableCell>{c.name}</TableCell>
                 <TableCell><Badge variant="secondary">{c.type}</Badge></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCatId(c.id); setCatForm({ code: c.code, name: c.name, type: c.type }) }}>
+                      <EditIcon className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => deleteCategory(c.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -546,9 +557,16 @@ export default function SetupPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={addProduct} className="mt-3" size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Ajouter
-              </Button>
+              <div className="flex gap-2 mt-3">
+                <Button onClick={addProduct} size="sm">
+                  <Plus className="h-4 w-4 mr-1" /> {editingProdId ? "Modifier" : "Ajouter"}
+                </Button>
+                {editingProdId && (
+                  <Button variant="outline" size="sm" onClick={() => { setEditingProdId(null); setProdForm({ code: "", name: "", categoryId: "", family: "", formulation: "", origin: "", unit: "KG" }) }}>
+                    Annuler
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </CardContent>

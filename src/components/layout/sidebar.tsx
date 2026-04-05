@@ -1,87 +1,154 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Package,
+  Tag,
+  Users,
+  UserCheck,
+  FileUp,
+  Trophy,
   Factory,
   Upload,
   ArrowLeftRight,
   Warehouse,
   FileSpreadsheet,
   BarChart3,
+  AlertTriangle,
   GitCompare,
+  Zap,
   Settings,
   Settings2,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Bell,
-  BookOpen,
-  Tag,
-  AlertTriangle,
-  Users,
-  UserCheck,
-  FileUp,
-  Trophy,
-  Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
 import { Button } from "@/components/ui/button"
 
-const navItems = [
-  { href: "/", icon: LayoutDashboard, labelKey: "dashboard" },
-  { href: "/products", icon: Package, labelKey: "products" },
-  { href: "/articles", icon: Tag, labelKey: "articles" },
-  { href: "/customers", icon: Users, labelKey: "customers" },
-  { href: "/sales-reps", icon: UserCheck, labelKey: "salesReps" },
-  { href: "/sales-import", icon: FileUp, labelKey: "salesImport" },
-  { href: "/production", icon: Factory, labelKey: "production" },
-  { href: "/import", icon: Upload, labelKey: "import" },
-  { href: "/reallocations", icon: ArrowLeftRight, labelKey: "reallocations" },
-  { href: "/stock-valuation", icon: Warehouse, labelKey: "stockValuation" },
-  { href: "/cost-sheets", icon: FileSpreadsheet, labelKey: "costSheets" },
-  { href: "/variance-analysis", icon: BarChart3, labelKey: "varianceAnalysis" },
-  { href: "/reconciliation", icon: AlertTriangle, labelKey: "reconciliation" },
-  { href: "/scenarios", icon: GitCompare, labelKey: "scenarios" },
-  { href: "/setup", icon: Settings2, labelKey: "setup" },
-  { href: "/settings", icon: Settings, labelKey: "settings" },
-  { href: "/league-tables", icon: Trophy, labelKey: "leagueTables" },
-  { href: "/smart-pricing", icon: Zap, labelKey: "smartPricing" },
-  { href: "/onboarding", icon: BookOpen, labelKey: "onboarding" },
+type NavItem = { href: string; icon: React.ElementType; label: string }
+type NavGroup = { key: string; label: string; icon: React.ElementType; items: NavItem[] }
+
+const navStructure: (NavItem | NavGroup)[] = [
+  { href: "/", icon: LayoutDashboard, label: "Tableau de bord" },
+  {
+    key: "catalogue",
+    label: "Catalogue",
+    icon: Package,
+    items: [
+      { href: "/products", icon: Package, label: "Produits" },
+      { href: "/articles", icon: Tag, label: "Articles" },
+    ],
+  },
+  {
+    key: "commercial",
+    label: "Commercial",
+    icon: Users,
+    items: [
+      { href: "/customers", icon: Users, label: "Clients" },
+      { href: "/sales-reps", icon: UserCheck, label: "Commerciaux" },
+      { href: "/sales-import", icon: FileUp, label: "Import ventes" },
+      { href: "/league-tables", icon: Trophy, label: "League Tables" },
+    ],
+  },
+  {
+    key: "production",
+    label: "Saisie & Import",
+    icon: Factory,
+    items: [
+      { href: "/production", icon: Factory, label: "Saisie production" },
+      { href: "/import", icon: Upload, label: "Import comptable" },
+    ],
+  },
+  {
+    key: "analyse",
+    label: "Analyse coûts",
+    icon: FileSpreadsheet,
+    items: [
+      { href: "/reallocations", icon: ArrowLeftRight, label: "Réaffectations" },
+      { href: "/stock-valuation", icon: Warehouse, label: "Valorisation stocks" },
+      { href: "/cost-sheets", icon: FileSpreadsheet, label: "Feuilles de costing" },
+    ],
+  },
+  {
+    key: "intelligence",
+    label: "Intelligence",
+    icon: BarChart3,
+    items: [
+      { href: "/variance-analysis", icon: BarChart3, label: "Analyse des écarts" },
+      { href: "/smart-pricing", icon: Zap, label: "Smart Pricing" },
+      { href: "/reconciliation", icon: AlertTriangle, label: "Réconciliation" },
+      { href: "/scenarios", icon: GitCompare, label: "Scénarios" },
+    ],
+  },
+  {
+    key: "config",
+    label: "Configuration",
+    icon: Settings,
+    items: [
+      { href: "/setup", icon: Settings2, label: "Configuration initiale" },
+      { href: "/settings", icon: Settings, label: "Paramètres" },
+      { href: "/onboarding", icon: BookOpen, label: "Guide de démarrage" },
+    ],
+  },
 ]
 
-const labels: Record<string, string> = {
-  dashboard: "Tableau de bord",
-  products: "Produits",
-  articles: "Articles",
-  production: "Production",
-  import: "Import comptable",
-  reallocations: "Réaffectations",
-  stockValuation: "Valorisation stocks",
-  costSheets: "Feuilles de costing",
-  varianceAnalysis: "Analyse des écarts",
-  reconciliation: "Réconciliation",
-  scenarios: "Scénarios",
-  customers: "Clients",
-  salesReps: "Commerciaux",
-  salesImport: "Import ventes",
-  setup: "Configuration initiale",
-  settings: "Paramètres",
-  leagueTables: "League Tables",
-  smartPricing: "Smart Pricing",
-  onboarding: "Guide de démarrage",
+function isGroup(item: NavItem | NavGroup): item is NavGroup {
+  return "items" in item
 }
 
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar, user } = useAppStore()
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    // Open the group containing the current path by default
+    const initial: Record<string, boolean> = {}
+    for (const item of navStructure) {
+      if (isGroup(item)) {
+        const hasActive = item.items.some(
+          (sub) => sub.href === "/" ? pathname === "/" : pathname.startsWith(sub.href)
+        )
+        initial[item.key] = hasActive
+      }
+    }
+    return initial
+  })
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
     window.location.href = "/login"
+  }
+
+  const renderNavItem = (item: NavItem, indent = false) => {
+    const isActive =
+      item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+          indent && sidebarOpen && "pl-9",
+          isActive
+            ? "bg-slate-100 text-slate-900"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        )}
+      >
+        <item.icon className="h-4 w-4 shrink-0" />
+        {sidebarOpen && <span className="truncate">{item.label}</span>}
+      </Link>
+    )
   }
 
   return (
@@ -96,53 +163,54 @@ export function Sidebar() {
         {sidebarOpen && (
           <h1 className="text-xl font-bold text-slate-900">Valoris</h1>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="h-8 w-8"
-        >
-          {sidebarOpen ? (
-            <ChevronLeft className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-8 w-8">
+          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href)
-          const isOnboarding = item.labelKey === "onboarding"
+      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {navStructure.map((item) => {
+          if (!isGroup(item)) {
+            return renderNavItem(item)
+          }
+
+          const group = item
+          const isOpen = openGroups[group.key] ?? false
+          const hasActive = group.items.some(
+            (sub) => sub.href === "/" ? pathname === "/" : pathname.startsWith(sub.href)
+          )
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-slate-100 text-slate-900"
-                  : isOnboarding
-                    ? "text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            <div key={group.key}>
+              <button
+                onClick={() => toggleGroup(group.key)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  hasActive
+                    ? "text-slate-900"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                )}
+              >
+                <group.icon className="h-4 w-4 shrink-0" />
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 truncate text-left">{group.label}</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 transition-transform",
+                        isOpen && "rotate-180"
+                      )}
+                    />
+                  </>
+                )}
+              </button>
+              {(isOpen || !sidebarOpen) && (
+                <div className={cn("space-y-0.5", sidebarOpen && "mt-0.5")}>
+                  {group.items.map((sub) => renderNavItem(sub, true))}
+                </div>
               )}
-            >
-              <item.icon className={cn("h-5 w-5 shrink-0", isOnboarding && !isActive && "text-emerald-600")} />
-              {sidebarOpen && (
-                <span className="flex items-center gap-2">
-                  {labels[item.labelKey]}
-                  {isOnboarding && (
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      Nouveau
-                    </span>
-                  )}
-                </span>
-              )}
-            </Link>
+            </div>
           )
         })}
       </nav>
